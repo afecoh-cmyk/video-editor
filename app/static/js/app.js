@@ -651,3 +651,37 @@ function resetRenderBtn() {
 function downloadRender() {
     window.open(`/api/projects/${PROJECT_ID}/render/download`, '_blank');
 }
+
+// ============================================================
+// MOBILE TAB NAVIGATION
+// ============================================================
+function switchTab(tab) {
+    const panels = { assets: 'panel-assets', timeline: 'panel-timeline', editor: 'panel-editor' };
+    const tabs = { assets: 'tab-assets', timeline: 'tab-timeline', editor: 'tab-editor' };
+
+    Object.values(panels).forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.classList.remove('mobile-active');
+    });
+    Object.values(tabs).forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.classList.remove('active');
+    });
+
+    const panel = document.getElementById(panels[tab]);
+    const tabEl = document.getElementById(tabs[tab]);
+    if (panel) panel.classList.add('mobile-active');
+    if (tabEl) tabEl.classList.add('active');
+
+    // Scroll to top
+    window.scrollTo(0, 0);
+}
+
+// Mobilon szegmens kiválasztásnál automatikusan szerkesztő tabra vált
+const _origSelectSegment = selectSegment;
+selectSegment = function(segId) {
+    _origSelectSegment(segId);
+    if (window.innerWidth <= 768) {
+        switchTab('editor');
+    }
+};
