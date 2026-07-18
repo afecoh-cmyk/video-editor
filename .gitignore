@@ -1,35 +1,12 @@
-# Python
 __pycache__/
-*.py[cod]
+*.pyc
 *.pyo
-*.pyd
-.Python
+instance/*.db
+instance/*.db-shm
+instance/*.db-wal
+logs/*.log
+cloudflared.exe
+.env
 *.egg-info/
 dist/
 build/
-.venv/
-venv/
-env/
-
-# Data / User files (ne tedd fel GitHubra!)
-data/
-*.mp4
-*.avi
-*.mov
-*.mkv
-*.mp3
-*.wav
-*.aac
-
-# Secrets
-.env
-*.env
-
-# OS
-.DS_Store
-Thumbs.db
-
-# IDE
-.vscode/
-.idea/
-*.swp
