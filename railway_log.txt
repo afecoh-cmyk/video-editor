@@ -1,0 +1,3 @@
+# Railway log - ide másold be a Railway build/deploy log-ot
+# Ha van hiba, én megnézem és segítek.
+
