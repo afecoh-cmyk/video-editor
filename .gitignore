@@ -1,35 +1,54 @@
-# Python
-__pycache__/
-*.py[cod]
-*.pyo
-*.pyd
-.Python
-*.egg-info/
-dist/
-build/
-.venv/
-venv/
-env/
-
-# Data / User files (ne tedd fel GitHubra!)
-data/
-*.mp4
-*.avi
-*.mov
-*.mkv
-*.mp3
-*.wav
-*.aac
-
-# Secrets
-.env
-*.env
-
 # OS
 .DS_Store
 Thumbs.db
 
-# IDE
+# IDE / editor
 .vscode/
 .idea/
 *.swp
+*.swo
+*~
+
+# Secrets & env
+.env
+*.env
+!.env.example
+
+# Node / JS
+node_modules/
+npm-debug.log*
+yarn-error.log*
+.pnpm-store/
+
+# Expo / React Native
+.expo/
+.expo-shared/
+dist/
+web-build/
+android/app/build/
+ios/build/
+*.jks
+*.p8
+*.p12
+*.mobileprovision
+*.orig.*
+
+# Flutter (if used later)
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+.pub-cache/
+.pub/
+build/
+
+# Python (legacy / tooling)
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# Misc
+coverage/
+*.log
+*.tmp
