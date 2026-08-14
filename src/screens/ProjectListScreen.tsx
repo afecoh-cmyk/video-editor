@@ -1,0 +1,147 @@
+import { useCallback, useState } from 'react';
+import {
+  ActivityIndicator,
+  FlatList,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import type { RootStackParamList } from '../navigation';
+import { listProjects, projectMuffTotal, todayIso } from '../storage';
+import type { Project } from '../types';
+import { colors, spacing } from '../theme';
+
+type Nav = NativeStackNavigationProp<RootStackParamList, 'ProjectList'>;
+
+type Row = Project & { muffTotal: number };
+
+export function ProjectListScreen() {
+  const navigation = useNavigation<Nav>();
+  const [rows, setRows] = useState<Row[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    const projects = await listProjects();
+    const withTotals = await Promise.all(
+      projects.map(async (p) => ({ ...p, muffTotal: await projectMuffTotal(p.id) }))
+    );
+    setRows(withTotals);
+    setLoading(false);
+  }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      void load();
+    }, [load])
+  );
+
+  const today = todayIso();
+
+  return (
+    <View style={styles.screen}>
+      <View style={styles.topActions}>
+        <Pressable
+          style={styles.secondaryBtn}
+          onPress={() => navigation.navigate('DailySummary', { date: today })}
+        >
+          <Text style={styles.secondaryBtnText}>Napi összesítő</Text>
+        </Pressable>
+        <Pressable style={styles.primaryBtn} onPress={() => navigation.navigate('ProjectForm', {})}>
+          <Text style={styles.primaryBtnText}>+ Új projekt</Text>
+        </Pressable>
+      </View>
+
+      {loading ? (
+        <ActivityIndicator style={{ marginTop: 40 }} color={colors.accent} />
+      ) : rows.length === 0 ? (
+        <View style={styles.empty}>
+          <Text style={styles.emptyTitle}>Még nincs projekt</Text>
+          <Text style={styles.emptyBody}>
+            Hozz létre egy projektet a bajsztelephez, majd rögzítsd a muffokat DM szerint.
+          </Text>
+        </View>
+      ) : (
+        <FlatList
+          data={rows}
+          keyExtractor={(item) => item.id}
+          contentContainerStyle={{ paddingBottom: spacing.xl }}
+          renderItem={({ item }) => {
+            const isToday = item.date === today;
+            return (
+              <Pressable
+                style={styles.card}
+                onPress={() => navigation.navigate('MuffList', { projectId: item.id })}
+                onLongPress={() => navigation.navigate('ProjectForm', { projectId: item.id })}
+              >
+                <View style={styles.cardTop}>
+                  <Text style={styles.date}>{item.date}</Text>
+                  {isToday ? <Text style={styles.badge}>Ma</Text> : null}
+                </View>
+                <Text style={styles.title}>{item.baustellenort || 'Nincs helyszín'}</Text>
+                <Text style={styles.meta}>
+                  {item.betreiber || '—'} · {item.verlegefirma || '—'}
+                </Text>
+                <Text style={styles.total}>
+                  {item.muffTotal} muff · tarts hosszan a szerkesztéshez
+                </Text>
+              </Pressable>
+            );
+          }}
+        />
+      )}
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  screen: { flex: 1, backgroundColor: colors.bg, padding: spacing.md },
+  topActions: { flexDirection: 'row', gap: spacing.sm, marginBottom: spacing.md },
+  primaryBtn: {
+    flex: 1,
+    backgroundColor: colors.accent,
+    paddingVertical: 14,
+    borderRadius: 10,
+    alignItems: 'center',
+  },
+  primaryBtnText: { color: '#fff', fontWeight: '700', fontSize: 16 },
+  secondaryBtn: {
+    flex: 1,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    paddingVertical: 14,
+    borderRadius: 10,
+    alignItems: 'center',
+  },
+  secondaryBtnText: { color: colors.ink, fontWeight: '600', fontSize: 15 },
+  empty: { marginTop: 48, paddingHorizontal: spacing.md },
+  emptyTitle: { fontSize: 22, fontWeight: '700', color: colors.ink, marginBottom: 8 },
+  emptyBody: { fontSize: 16, color: colors.muted, lineHeight: 22 },
+  card: {
+    backgroundColor: colors.surface,
+    borderRadius: 12,
+    padding: spacing.md,
+    marginBottom: spacing.sm,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  cardTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  date: { color: colors.muted, fontWeight: '600' },
+  badge: {
+    backgroundColor: colors.total,
+    color: '#fff',
+    overflow: 'hidden',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 6,
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  title: { fontSize: 18, fontWeight: '700', color: colors.ink, marginTop: 6 },
+  meta: { color: colors.muted, marginTop: 4 },
+  total: { marginTop: 10, color: colors.total, fontWeight: '700' },
+});

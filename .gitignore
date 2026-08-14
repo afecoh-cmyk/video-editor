@@ -2,19 +2,19 @@
 .DS_Store
 Thumbs.db
 
-# IDE / editor
+# IDE
 .vscode/
 .idea/
 *.swp
 *.swo
 *~
 
-# Secrets & env
+# Secrets
 .env
 *.env
 !.env.example
 
-# Node / JS
+# Node
 node_modules/
 npm-debug.log*
 yarn-error.log*
@@ -33,22 +33,13 @@ ios/build/
 *.mobileprovision
 *.orig.*
 
-# Flutter (if used later)
-.dart_tool/
-.flutter-plugins
-.flutter-plugins-dependencies
-.packages
-.pub-cache/
-.pub/
-build/
+# Metro
+.metro-health-check*
 
-# Python (legacy / tooling)
-__pycache__/
-*.py[cod]
-.venv/
-venv/
+# typescript
+*.tsbuildinfo
 
-# Misc
+# misc
 coverage/
 *.log
 *.tmp

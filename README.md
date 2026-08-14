@@ -1,24 +1,26 @@
 # Muffe Plan
 
-Mobilapp a távhővezeték **Abnahmeprotokoll** (átvételi jegyzőkönyv) papíros folyamatának kiváltására — különös tekintettel a **Schrumpfmuffen** (zsugormuffok) napi nyomon követésére.
+Mobilapp a távhővezeték **Abnahmeprotokoll** papíros folyamatának kiváltására — fókuszban a **Schrumpfmuffen** napi nyomon követése (30–40 tétel is).
 
-## Miért?
+## Futtatás
 
-A helyszínen 30–40 különböző muffot is fel kell írni (átmérő / darabszám / nyomáspróba). Nap végére a papíros BRUGG-jegyzőkönyv nehezen átlátható. A Muffe Plan célja: gyors rögzítés a telefonon, egyértelmű összesítés, exportálható jegyzőkönyv.
+```bash
+npm install
+npx expo start
+```
 
-## Célplatform
+Ezután Expo Go-val telefonon, vagy `a` / `i` / `w` (Android / iOS szimulátor / web).
 
-- **Letölthető mobilapp** (iOS + Android)
-- Első verzió: offline-barát használat a bajsztelepen
+## MVP funkciók
+
+1. **Projektlista** — bajsztelepek
+2. **Új / szerkesztett projekt** — Betreiber, Verlegefirma, Baustellenort, Datum
+3. **Muff lista** — DM chip + Stk. + Prüfdruck gyors hozzáadás, futó összesen
+4. **Napi összesítő** — DM szerinti csoportosítás az aznapi projektekre
+5. **Offline** — AsyncStorage helyi mentés
 
 ## Dokumentáció
 
-| Dokumentum | Tartalom |
-|---|---|
-| [docs/PRODUCT.md](docs/PRODUCT.md) | Termékcél, felhasználói folyamat, képernyők |
-| [docs/DATA-MODEL.md](docs/DATA-MODEL.md) | Adatmodell (projekt, muff, mérés, aláírás) |
-| [docs/MVP.md](docs/MVP.md) | MVP scope — mit építünk először |
-
-## Állapot
-
-A korábbi video-editor kód eltávolítva. Ez a repo most a **Muffe Plan** tervezésének és fejlesztésének kiindulópontja.
+- [docs/PRODUCT.md](docs/PRODUCT.md)
+- [docs/DATA-MODEL.md](docs/DATA-MODEL.md)
+- [docs/MVP.md](docs/MVP.md)
