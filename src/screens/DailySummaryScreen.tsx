@@ -9,14 +9,16 @@ import {
 import { useFocusEffect } from '@react-navigation/native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../navigation';
-import { dailySummary, todayIso, type DiameterSummary } from '../storage';
-import type { Project } from '../types';
+import { dailySummary, todayIso, type DiameterSummary, type KindSummary } from '../storage';
+import { formatPartDims, partKindLabel, type Project } from '../types';
 import { colors, spacing } from '../theme';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'DailySummary'>;
 
 type SummaryState = {
+  byKind: KindSummary[];
   byDiameter: DiameterSummary[];
+  totalParts: number;
   totalMuffs: number;
   projectCount: number;
   projects: Project[];
@@ -51,17 +53,24 @@ export function DailySummaryScreen({ route }: Props) {
     <View style={styles.screen}>
       <View style={styles.hero}>
         <Text style={styles.heroDate}>{date}</Text>
-        <Text style={styles.heroTotal}>{data.totalMuffs}</Text>
-        <Text style={styles.heroUnit}>muff összesen · {data.projectCount} projekt</Text>
+        <Text style={styles.heroTotal}>{data.totalParts}</Text>
+        <Text style={styles.heroUnit}>db összesen · {data.projectCount} projekt</Text>
+        <View style={styles.kindBreakdown}>
+          {data.byKind.map((k) => (
+            <Text key={k.kind} style={styles.kindBreakText}>
+              {partKindLabel(k.kind)}: {k.count}
+            </Text>
+          ))}
+        </View>
       </View>
 
-      <Text style={styles.section}>DM szerint</Text>
+      <Text style={styles.section}>Típus + DM</Text>
       {data.byDiameter.length === 0 ? (
-        <Text style={styles.empty}>Erre a napra még nincs muff rögzítve.</Text>
+        <Text style={styles.empty}>Erre a napra még nincs tétel.</Text>
       ) : (
         <FlatList
           data={data.byDiameter}
-          keyExtractor={(item) => String(item.diameterMm)}
+          keyExtractor={(item) => `${item.kind}-${item.diameterMm}-${item.diameterToMm ?? ''}`}
           contentContainerStyle={{ paddingBottom: spacing.xl }}
           ListFooterComponent={
             <View style={styles.projectsBox}>
@@ -75,10 +84,13 @@ export function DailySummaryScreen({ route }: Props) {
           }
           renderItem={({ item }) => (
             <View style={styles.row}>
-              <Text style={styles.dm}>DM {item.diameterMm}</Text>
+              <View>
+                <Text style={styles.kind}>{partKindLabel(item.kind)}</Text>
+                <Text style={styles.dm}>{formatPartDims(item)}</Text>
+              </View>
               <View style={styles.rowRight}>
-                <Text style={styles.count}>{item.muffCount} Stk.</Text>
-                <Text style={styles.entries}>{item.entryCount} tétel</Text>
+                <Text style={styles.count}>{item.count} Stk.</Text>
+                <Text style={styles.entries}>{item.entryCount} sor</Text>
               </View>
             </View>
           )}
@@ -100,6 +112,8 @@ const styles = StyleSheet.create({
   heroDate: { color: '#B8C2CC', fontWeight: '600' },
   heroTotal: { color: '#fff', fontSize: 48, fontWeight: '800', marginTop: 4 },
   heroUnit: { color: '#B8C2CC', marginTop: 4 },
+  kindBreakdown: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, marginTop: 12 },
+  kindBreakText: { color: '#E8ECF0', fontWeight: '700' },
   section: {
     fontWeight: '800',
     fontSize: 16,
@@ -119,7 +133,8 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
   },
-  dm: { fontSize: 18, fontWeight: '700', color: colors.ink },
+  kind: { fontSize: 12, fontWeight: '700', color: colors.muted, textTransform: 'uppercase' },
+  dm: { fontSize: 17, fontWeight: '700', color: colors.ink, marginTop: 2 },
   rowRight: { alignItems: 'flex-end' },
   count: { fontSize: 18, fontWeight: '800', color: colors.total },
   entries: { color: colors.muted, fontSize: 12, marginTop: 2 },

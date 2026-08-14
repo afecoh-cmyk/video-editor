@@ -13,13 +13,22 @@ import { useFocusEffect } from '@react-navigation/native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../navigation';
 import {
-  addMuff,
-  deleteMuff,
+  addPart,
+  adjustPartCount,
+  deletePart,
   getProject,
-  listMuffs,
-  updateMuff,
+  listParts,
+  updatePart,
 } from '../storage';
-import { COMMON_DIAMETERS, type MuffEntry, type Project } from '../types';
+import {
+  COMMON_DIAMETERS,
+  formatPartDims,
+  PART_KINDS,
+  partKindLabel,
+  type PartEntry,
+  type PartKind,
+  type Project,
+} from '../types';
 import { colors, spacing } from '../theme';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'MuffList'>;
@@ -27,15 +36,21 @@ type Props = NativeStackScreenProps<RootStackParamList, 'MuffList'>;
 export function MuffListScreen({ navigation, route }: Props) {
   const { projectId } = route.params;
   const [project, setProject] = useState<Project | null>(null);
-  const [muffs, setMuffs] = useState<MuffEntry[]>([]);
-  const [diameter, setDiameter] = useState<number>(315);
+  const [parts, setParts] = useState<PartEntry[]>([]);
+  const [kind, setKind] = useState<PartKind>('muffe');
+  const [diameter, setDiameter] = useState(315);
+  const [diameterTo, setDiameterTo] = useState(250);
   const [customDm, setCustomDm] = useState('');
-  const [count, setCount] = useState('1');
-  const [pressure, setPressure] = useState('');
+  const [customDmTo, setCustomDmTo] = useState('');
+  const [count, setCount] = useState(1);
   const [adding, setAdding] = useState(false);
-  const [editTarget, setEditTarget] = useState<MuffEntry | null>(null);
+  const [editTarget, setEditTarget] = useState<PartEntry | null>(null);
+  const [editKind, setEditKind] = useState<PartKind>('muffe');
+  const [editDm, setEditDm] = useState('');
+  const [editDmTo, setEditDmTo] = useState('');
   const [editCount, setEditCount] = useState('');
-  const [editPressure, setEditPressure] = useState('');
+
+  const needsSecondDm = kind === 'reduzir' || kind === 'abzweig';
 
   const load = useCallback(async () => {
     const p = await getProject(projectId);
@@ -45,8 +60,8 @@ export function MuffListScreen({ navigation, route }: Props) {
       return;
     }
     setProject(p);
-    navigation.setOptions({ title: p.baustellenort || 'Muffok' });
-    setMuffs(await listMuffs(projectId));
+    navigation.setOptions({ title: p.baustellenort || 'Tételek' });
+    setParts(await listParts(projectId));
   }, [projectId, navigation]);
 
   useFocusEffect(
@@ -55,89 +70,121 @@ export function MuffListScreen({ navigation, route }: Props) {
     }, [load])
   );
 
-  const total = useMemo(() => muffs.reduce((s, m) => s + m.muffCount, 0), [muffs]);
+  const totals = useMemo(() => {
+    const t = { total: 0, muffe: 0, reduzir: 0, abzweig: 0 };
+    for (const p of parts) {
+      t.total += p.count;
+      t[p.kind] += p.count;
+    }
+    return t;
+  }, [parts]);
 
-  const resolvedDiameter = customDm.trim() ? Number(customDm) : diameter;
+  const resolvedDm = customDm.trim() ? Number(customDm) : diameter;
+  const resolvedDmTo = customDmTo.trim() ? Number(customDmTo) : diameterTo;
 
   const onAdd = async () => {
-    const muffCount = Number(count);
-    if (!Number.isFinite(resolvedDiameter) || resolvedDiameter <= 0) {
+    if (!Number.isFinite(resolvedDm) || resolvedDm <= 0) {
       Alert.alert('Hibás DM', 'Adj meg érvényes átmérőt.');
       return;
     }
-    if (!Number.isFinite(muffCount) || muffCount <= 0) {
-      Alert.alert('Hibás darabszám', 'A Stk. legyen nagyobb mint 0.');
+    if (needsSecondDm && (!Number.isFinite(resolvedDmTo) || resolvedDmTo <= 0)) {
+      Alert.alert('Hibás 2. DM', kind === 'reduzir' ? 'Add meg a cél DM-et (→).' : 'Add meg az Abzweig DM-et.');
       return;
     }
-    const pressureVal = pressure.trim() ? Number(pressure.replace(',', '.')) : null;
-    if (pressure.trim() && !Number.isFinite(pressureVal)) {
-      Alert.alert('Hibás nyomás', 'A Prüfdruck legyen szám (pl. 0.3).');
+    if (count <= 0) {
+      Alert.alert('Hibás darabszám', 'A Stk. legyen legalább 1.');
       return;
     }
 
     setAdding(true);
     try {
-      await addMuff({
+      await addPart({
         projectId,
-        diameterMm: resolvedDiameter,
-        muffCount,
-        testPressureBar: pressureVal,
+        kind,
+        diameterMm: resolvedDm,
+        diameterToMm: needsSecondDm ? resolvedDmTo : null,
+        count,
       });
-      setCount('1');
-      setPressure('');
+      setCount(1);
       setCustomDm('');
+      setCustomDmTo('');
       await load();
     } finally {
       setAdding(false);
     }
   };
 
-  const openEdit = (entry: MuffEntry) => {
+  const bump = async (entry: PartEntry, delta: number) => {
+    await adjustPartCount(entry.id, delta);
+    await load();
+  };
+
+  const openEdit = (entry: PartEntry) => {
     setEditTarget(entry);
-    setEditCount(String(entry.muffCount));
-    setEditPressure(entry.testPressureBar != null ? String(entry.testPressureBar) : '');
+    setEditKind(entry.kind);
+    setEditDm(String(entry.diameterMm));
+    setEditDmTo(entry.diameterToMm != null ? String(entry.diameterToMm) : '');
+    setEditCount(String(entry.count));
   };
 
   const saveEdit = async () => {
     if (!editTarget) return;
-    const muffCount = Number(editCount);
-    if (!Number.isFinite(muffCount) || muffCount <= 0) {
+    const dm = Number(editDm);
+    const dmTo = editDmTo.trim() ? Number(editDmTo) : null;
+    const c = Number(editCount);
+    const needTo = editKind === 'reduzir' || editKind === 'abzweig';
+    if (!Number.isFinite(dm) || dm <= 0) {
+      Alert.alert('Hibás DM', 'Adj meg érvényes átmérőt.');
+      return;
+    }
+    if (needTo && (dmTo == null || !Number.isFinite(dmTo) || dmTo <= 0)) {
+      Alert.alert('Hibás 2. DM', 'Add meg a második dimenziót.');
+      return;
+    }
+    if (!Number.isFinite(c) || c <= 0) {
       Alert.alert('Hibás darabszám', 'A Stk. legyen nagyobb mint 0.');
       return;
     }
-    const pressureVal = editPressure.trim() ? Number(editPressure.replace(',', '.')) : null;
-    await updateMuff(editTarget.id, {
-      muffCount,
-      testPressureBar: pressureVal,
+    await updatePart(editTarget.id, {
+      kind: editKind,
+      diameterMm: dm,
+      diameterToMm: needTo ? dmTo : null,
+      count: c,
     });
     setEditTarget(null);
     await load();
   };
 
-  const confirmDelete = (entry: MuffEntry) => {
-    Alert.alert('Muff törlése', `DM ${entry.diameterMm} · ${entry.muffCount} Stk. törlése?`, [
-      { text: 'Mégse', style: 'cancel' },
-      {
-        text: 'Törlés',
-        style: 'destructive',
-        onPress: async () => {
-          await deleteMuff(entry.id);
-          await load();
+  const confirmDelete = (entry: PartEntry) => {
+    Alert.alert(
+      'Tétel törlése',
+      `${partKindLabel(entry.kind)} · ${formatPartDims(entry)} · ${entry.count} Stk.?`,
+      [
+        { text: 'Mégse', style: 'cancel' },
+        {
+          text: 'Törlés',
+          style: 'destructive',
+          onPress: async () => {
+            await deletePart(entry.id);
+            await load();
+          },
         },
-      },
-    ]);
+      ]
+    );
   };
 
   return (
     <View style={styles.screen}>
       <View style={styles.summaryBar}>
-        <View>
+        <View style={{ flex: 1 }}>
           <Text style={styles.summaryLabel}>{project?.date}</Text>
-          <Text style={styles.summaryMeta}>{project?.betreiber || '—'}</Text>
+          <Text style={styles.summaryMeta} numberOfLines={1}>
+            M {totals.muffe} · R {totals.reduzir} · A {totals.abzweig}
+          </Text>
         </View>
         <View style={styles.summaryRight}>
-          <Text style={styles.summaryCount}>{total}</Text>
-          <Text style={styles.summaryUnit}>muff összesen</Text>
+          <Text style={styles.summaryCount}>{totals.total}</Text>
+          <Text style={styles.summaryUnit}>db összesen</Text>
         </View>
       </View>
 
@@ -145,35 +192,58 @@ export function MuffListScreen({ navigation, route }: Props) {
         style={styles.editProject}
         onPress={() => navigation.navigate('ProjectForm', { projectId })}
       >
-        <Text style={styles.editProjectText}>Projekt adatok szerkesztése</Text>
+        <Text style={styles.editProjectText}>Projekt adatok</Text>
       </Pressable>
 
       <FlatList
-        data={muffs}
+        data={parts}
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.listContent}
         ListEmptyComponent={
-          <Text style={styles.empty}>Még nincs muff. Add hozzá alulról — 30–40 tétel is megy.</Text>
+          <Text style={styles.empty}>
+            Még nincs tétel. Alul: típus → DM → darabszám → hozzáad. A listán +/−-kal gyorsan módosíthatsz.
+          </Text>
         }
         renderItem={({ item }) => (
-          <Pressable
-            style={styles.row}
-            onPress={() => openEdit(item)}
-            onLongPress={() => confirmDelete(item)}
-          >
-            <Text style={styles.rowDm}>DM {item.diameterMm}</Text>
-            <View style={styles.rowRight}>
-              <Text style={styles.rowCount}>{item.muffCount} Stk.</Text>
-              {item.testPressureBar != null ? (
-                <Text style={styles.rowPressure}>{item.testPressureBar} Bar</Text>
-              ) : null}
+          <View style={styles.row}>
+            <Pressable style={styles.rowMain} onPress={() => openEdit(item)} onLongPress={() => confirmDelete(item)}>
+              <Text style={styles.rowKind}>{partKindLabel(item.kind)}</Text>
+              <Text style={styles.rowDm}>{formatPartDims(item)}</Text>
+            </Pressable>
+            <View style={styles.stepper}>
+              <Pressable style={styles.stepBtn} onPress={() => void bump(item, -1)}>
+                <Text style={styles.stepBtnText}>−</Text>
+              </Pressable>
+              <Pressable onPress={() => openEdit(item)}>
+                <Text style={styles.rowCount}>{item.count}</Text>
+              </Pressable>
+              <Pressable style={styles.stepBtn} onPress={() => void bump(item, 1)}>
+                <Text style={styles.stepBtnText}>+</Text>
+              </Pressable>
             </View>
-          </Pressable>
+          </View>
         )}
       />
 
       <View style={styles.quickAdd}>
-        <Text style={styles.quickTitle}>Gyors hozzáadás</Text>
+        <Text style={styles.quickTitle}>Gyors felírás</Text>
+
+        <View style={styles.kindRow}>
+          {PART_KINDS.map((k) => {
+            const active = kind === k.id;
+            return (
+              <Pressable
+                key={k.id}
+                style={[styles.kindChip, active && styles.kindChipActive]}
+                onPress={() => setKind(k.id)}
+              >
+                <Text style={[styles.kindChipText, active && styles.kindChipTextActive]}>{k.label}</Text>
+              </Pressable>
+            );
+          })}
+        </View>
+
+        <Text style={styles.inputLabel}>{needsSecondDm ? (kind === 'reduzir' ? 'DM von' : 'Haupt DM') : 'DM'}</Text>
         <View style={styles.chips}>
           {COMMON_DIAMETERS.map((dm) => {
             const active = !customDm && diameter === dm;
@@ -192,6 +262,29 @@ export function MuffListScreen({ navigation, route }: Props) {
           })}
         </View>
 
+        {needsSecondDm ? (
+          <>
+            <Text style={styles.inputLabel}>{kind === 'reduzir' ? 'DM bis (→)' : 'Abzweig DM'}</Text>
+            <View style={styles.chips}>
+              {COMMON_DIAMETERS.map((dm) => {
+                const active = !customDmTo && diameterTo === dm;
+                return (
+                  <Pressable
+                    key={`to-${dm}`}
+                    style={[styles.chip, active && styles.chipActive]}
+                    onPress={() => {
+                      setDiameterTo(dm);
+                      setCustomDmTo('');
+                    }}
+                  >
+                    <Text style={[styles.chipText, active && styles.chipTextActive]}>{dm}</Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+          </>
+        ) : null}
+
         <View style={styles.inputsRow}>
           <View style={styles.inputBlock}>
             <Text style={styles.inputLabel}>Egyedi DM</Text>
@@ -200,35 +293,44 @@ export function MuffListScreen({ navigation, route }: Props) {
               value={customDm}
               onChangeText={setCustomDm}
               keyboardType="number-pad"
-              placeholder="pl. 355"
+              placeholder="—"
               placeholderTextColor={colors.muted}
             />
           </View>
-          <View style={styles.inputBlock}>
+          {needsSecondDm ? (
+            <View style={styles.inputBlock}>
+              <Text style={styles.inputLabel}>Egyedi 2. DM</Text>
+              <TextInput
+                style={styles.input}
+                value={customDmTo}
+                onChangeText={setCustomDmTo}
+                keyboardType="number-pad"
+                placeholder="—"
+                placeholderTextColor={colors.muted}
+              />
+            </View>
+          ) : null}
+          <View style={styles.inputBlockNarrow}>
             <Text style={styles.inputLabel}>Stk.</Text>
-            <TextInput
-              style={styles.input}
-              value={count}
-              onChangeText={setCount}
-              keyboardType="number-pad"
-            />
-          </View>
-          <View style={styles.inputBlock}>
-            <Text style={styles.inputLabel}>Bar</Text>
-            <TextInput
-              style={styles.input}
-              value={pressure}
-              onChangeText={setPressure}
-              keyboardType="decimal-pad"
-              placeholder="0.3"
-              placeholderTextColor={colors.muted}
-            />
+            <View style={styles.countStepper}>
+              <Pressable style={styles.stepBtn} onPress={() => setCount((c) => Math.max(1, c - 1))}>
+                <Text style={styles.stepBtnText}>−</Text>
+              </Pressable>
+              <Text style={styles.countValue}>{count}</Text>
+              <Pressable style={styles.stepBtn} onPress={() => setCount((c) => c + 1)}>
+                <Text style={styles.stepBtnText}>+</Text>
+              </Pressable>
+            </View>
           </View>
         </View>
 
         <Pressable style={[styles.addBtn, adding && { opacity: 0.6 }]} onPress={onAdd} disabled={adding}>
           <Text style={styles.addBtnText}>
-            + Hozzáad · DM {Number.isFinite(resolvedDiameter) ? resolvedDiameter : '—'}
+            + {partKindLabel(kind)} ·{' '}
+            {needsSecondDm
+              ? `DM ${Number.isFinite(resolvedDm) ? resolvedDm : '—'}→${Number.isFinite(resolvedDmTo) ? resolvedDmTo : '—'}`
+              : `DM ${Number.isFinite(resolvedDm) ? resolvedDm : '—'}`}{' '}
+            · {count} Stk.
           </Text>
         </Pressable>
       </View>
@@ -236,23 +338,38 @@ export function MuffListScreen({ navigation, route }: Props) {
       <Modal visible={Boolean(editTarget)} transparent animationType="fade">
         <View style={styles.modalBackdrop}>
           <View style={styles.modalCard}>
-            <Text style={styles.modalTitle}>
-              Szerkesztés · DM {editTarget?.diameterMm}
-            </Text>
-            <Text style={styles.inputLabel}>Stk.</Text>
-            <TextInput
-              style={styles.input}
-              value={editCount}
-              onChangeText={setEditCount}
-              keyboardType="number-pad"
-            />
-            <Text style={[styles.inputLabel, { marginTop: 12 }]}>Prüfdruck (Bar)</Text>
-            <TextInput
-              style={styles.input}
-              value={editPressure}
-              onChangeText={setEditPressure}
-              keyboardType="decimal-pad"
-            />
+            <Text style={styles.modalTitle}>Szerkesztés</Text>
+            <View style={styles.kindRow}>
+              {PART_KINDS.map((k) => {
+                const active = editKind === k.id;
+                return (
+                  <Pressable
+                    key={k.id}
+                    style={[styles.kindChip, active && styles.kindChipActive]}
+                    onPress={() => setEditKind(k.id)}
+                  >
+                    <Text style={[styles.kindChipText, active && styles.kindChipTextActive]}>{k.short}</Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+            <Text style={styles.inputLabel}>DM</Text>
+            <TextInput style={styles.input} value={editDm} onChangeText={setEditDm} keyboardType="number-pad" />
+            {editKind === 'reduzir' || editKind === 'abzweig' ? (
+              <>
+                <Text style={[styles.inputLabel, { marginTop: 12 }]}>
+                  {editKind === 'reduzir' ? 'DM bis' : 'Abzweig DM'}
+                </Text>
+                <TextInput
+                  style={styles.input}
+                  value={editDmTo}
+                  onChangeText={setEditDmTo}
+                  keyboardType="number-pad"
+                />
+              </>
+            ) : null}
+            <Text style={[styles.inputLabel, { marginTop: 12 }]}>Stk.</Text>
+            <TextInput style={styles.input} value={editCount} onChangeText={setEditCount} keyboardType="number-pad" />
             <View style={styles.modalActions}>
               <Pressable style={styles.modalSecondary} onPress={() => setEditTarget(null)}>
                 <Text style={styles.modalSecondaryText}>Mégse</Text>
@@ -295,25 +412,36 @@ const styles = StyleSheet.create({
   summaryRight: { alignItems: 'flex-end' },
   summaryCount: { color: '#fff', fontSize: 32, fontWeight: '800', lineHeight: 36 },
   summaryUnit: { color: '#B8C2CC', fontSize: 12 },
-  editProject: { paddingHorizontal: spacing.md, paddingVertical: 10 },
+  editProject: { paddingHorizontal: spacing.md, paddingVertical: 8 },
   editProjectText: { color: colors.accent, fontWeight: '600' },
   listContent: { paddingHorizontal: spacing.md, paddingBottom: 8 },
-  empty: { color: colors.muted, paddingVertical: 24, lineHeight: 22 },
+  empty: { color: colors.muted, paddingVertical: 20, lineHeight: 22 },
   row: {
     backgroundColor: colors.surface,
     borderRadius: 10,
     borderWidth: 1,
     borderColor: colors.border,
-    padding: spacing.md,
+    paddingVertical: 8,
+    paddingHorizontal: 10,
     marginBottom: spacing.sm,
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
+    gap: 8,
   },
-  rowDm: { fontSize: 18, fontWeight: '700', color: colors.ink },
-  rowRight: { alignItems: 'flex-end' },
-  rowCount: { fontSize: 18, fontWeight: '700', color: colors.total },
-  rowPressure: { color: colors.muted, marginTop: 2 },
+  rowMain: { flex: 1 },
+  rowKind: { fontSize: 12, fontWeight: '700', color: colors.muted, textTransform: 'uppercase' },
+  rowDm: { fontSize: 17, fontWeight: '700', color: colors.ink, marginTop: 2 },
+  stepper: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  stepBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 10,
+    backgroundColor: colors.chip,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  stepBtnText: { fontSize: 22, fontWeight: '700', color: colors.ink, lineHeight: 24 },
+  rowCount: { minWidth: 36, textAlign: 'center', fontSize: 20, fontWeight: '800', color: colors.total },
   quickAdd: {
     backgroundColor: colors.surface,
     borderTopWidth: 1,
@@ -322,7 +450,18 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.lg,
   },
   quickTitle: { fontWeight: '800', fontSize: 16, color: colors.ink, marginBottom: 8 },
-  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 12 },
+  kindRow: { flexDirection: 'row', gap: 6, marginBottom: 10 },
+  kindChip: {
+    flex: 1,
+    backgroundColor: colors.chip,
+    paddingVertical: 12,
+    borderRadius: 10,
+    alignItems: 'center',
+  },
+  kindChipActive: { backgroundColor: colors.accent },
+  kindChipText: { fontWeight: '800', color: colors.ink },
+  kindChipTextActive: { color: '#fff' },
+  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 10 },
   chip: {
     backgroundColor: colors.chip,
     paddingHorizontal: 10,
@@ -332,8 +471,9 @@ const styles = StyleSheet.create({
   chipActive: { backgroundColor: colors.chipActive },
   chipText: { fontWeight: '700', color: colors.ink },
   chipTextActive: { color: colors.chipActiveText },
-  inputsRow: { flexDirection: 'row', gap: 8, marginBottom: 12 },
+  inputsRow: { flexDirection: 'row', gap: 8, marginBottom: 12, alignItems: 'flex-end' },
   inputBlock: { flex: 1 },
+  inputBlockNarrow: { width: 130 },
   inputLabel: { fontSize: 12, fontWeight: '700', color: colors.muted, marginBottom: 4 },
   input: {
     borderWidth: 1,
@@ -345,13 +485,15 @@ const styles = StyleSheet.create({
     color: colors.ink,
     backgroundColor: '#F7F9FB',
   },
+  countStepper: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  countValue: { minWidth: 28, textAlign: 'center', fontSize: 18, fontWeight: '800', color: colors.ink },
   addBtn: {
     backgroundColor: colors.accent,
     borderRadius: 10,
     paddingVertical: 14,
     alignItems: 'center',
   },
-  addBtnText: { color: '#fff', fontWeight: '800', fontSize: 16 },
+  addBtnText: { color: '#fff', fontWeight: '800', fontSize: 15, textAlign: 'center' },
   modalBackdrop: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.45)',

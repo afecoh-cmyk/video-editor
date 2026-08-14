@@ -10,13 +10,15 @@ import {
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../navigation';
-import { listProjects, projectMuffTotal, todayIso } from '../storage';
+import { listProjects, projectPartTotals, todayIso } from '../storage';
 import type { Project } from '../types';
 import { colors, spacing } from '../theme';
 
 type Nav = NativeStackNavigationProp<RootStackParamList, 'ProjectList'>;
 
-type Row = Project & { muffTotal: number };
+type Row = Project & {
+  totals: { total: number; muffe: number; reduzir: number; abzweig: number };
+};
 
 export function ProjectListScreen() {
   const navigation = useNavigation<Nav>();
@@ -27,7 +29,7 @@ export function ProjectListScreen() {
     setLoading(true);
     const projects = await listProjects();
     const withTotals = await Promise.all(
-      projects.map(async (p) => ({ ...p, muffTotal: await projectMuffTotal(p.id) }))
+      projects.map(async (p) => ({ ...p, totals: await projectPartTotals(p.id) }))
     );
     setRows(withTotals);
     setLoading(false);
@@ -61,7 +63,7 @@ export function ProjectListScreen() {
         <View style={styles.empty}>
           <Text style={styles.emptyTitle}>Még nincs projekt</Text>
           <Text style={styles.emptyBody}>
-            Hozz létre egy projektet a bajsztelephez, majd rögzítsd a muffokat DM szerint.
+            Hozz létre egy projektet, majd írd fel gyorsan: Muffe, Reduzir, Abzweig + DM + darabszám.
           </Text>
         </View>
       ) : (
@@ -86,7 +88,8 @@ export function ProjectListScreen() {
                   {item.betreiber || '—'} · {item.verlegefirma || '—'}
                 </Text>
                 <Text style={styles.total}>
-                  {item.muffTotal} muff · tarts hosszan a szerkesztéshez
+                  {item.totals.total} db · M {item.totals.muffe} · R {item.totals.reduzir} · A{' '}
+                  {item.totals.abzweig}
                 </Text>
               </Pressable>
             );

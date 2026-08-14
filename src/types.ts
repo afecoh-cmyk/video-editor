@@ -1,5 +1,14 @@
 export type ProjectStatus = 'draft' | 'closed';
 
+/** Fitting / part kinds used on site */
+export type PartKind = 'muffe' | 'reduzir' | 'abzweig';
+
+export const PART_KINDS: { id: PartKind; label: string; short: string }[] = [
+  { id: 'muffe', label: 'Muffe', short: 'Muffe' },
+  { id: 'reduzir', label: 'Reduzir', short: 'Red.' },
+  { id: 'abzweig', label: 'Abzweig', short: 'Abz.' },
+];
+
 export type Project = {
   id: string;
   betreiber: string;
@@ -12,21 +21,45 @@ export type Project = {
   updatedAt: string;
 };
 
-export type MuffEntry = {
+/**
+ * One countable line on a project.
+ * - muffe: diameterMm only
+ * - reduzir: diameterMm → diameterToMm (pl. 315→250)
+ * - abzweig: diameterMm main, diameterToMm = Abzweig DM
+ */
+export type PartEntry = {
   id: string;
   projectId: string;
+  kind: PartKind;
   diameterMm: number;
-  muffCount: number;
-  fittingsCount: number | null;
+  diameterToMm: number | null;
+  count: number;
   testPressureBar: number | null;
   note: string;
   sortOrder: number;
   createdAt: string;
 };
 
+/** @deprecated use PartEntry — kept alias for older imports */
+export type MuffEntry = PartEntry;
+
 export type AppData = {
   projects: Project[];
-  muffs: MuffEntry[];
+  parts: PartEntry[];
 };
 
 export const COMMON_DIAMETERS = [90, 110, 125, 140, 160, 180, 200, 225, 250, 280, 315, 355, 400] as const;
+
+export function partKindLabel(kind: PartKind): string {
+  return PART_KINDS.find((k) => k.id === kind)?.label ?? kind;
+}
+
+export function formatPartDims(entry: Pick<PartEntry, 'kind' | 'diameterMm' | 'diameterToMm'>): string {
+  if (entry.kind === 'reduzir' && entry.diameterToMm != null) {
+    return `DM ${entry.diameterMm}→${entry.diameterToMm}`;
+  }
+  if (entry.kind === 'abzweig' && entry.diameterToMm != null) {
+    return `DM ${entry.diameterMm} / Abz. ${entry.diameterToMm}`;
+  }
+  return `DM ${entry.diameterMm}`;
+}

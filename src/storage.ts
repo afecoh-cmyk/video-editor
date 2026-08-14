@@ -1,20 +1,82 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Crypto from 'expo-crypto';
-import type { AppData, MuffEntry, Project } from './types';
+import type { AppData, PartEntry, PartKind, Project } from './types';
 
-const STORAGE_KEY = 'muffe-plan:v1';
+const STORAGE_KEY = 'muffe-plan:v2';
+const LEGACY_KEY = 'muffe-plan:v1';
 
-const emptyData = (): AppData => ({ projects: [], muffs: [] });
+const emptyData = (): AppData => ({ projects: [], parts: [] });
+
+type LegacyMuff = {
+  id: string;
+  projectId: string;
+  diameterMm: number;
+  muffCount: number;
+  fittingsCount: number | null;
+  testPressureBar: number | null;
+  note: string;
+  sortOrder: number;
+  createdAt: string;
+};
+
+async function migrateIfNeeded(): Promise<void> {
+  const current = await AsyncStorage.getItem(STORAGE_KEY);
+  if (current) return;
+
+  const legacy = await AsyncStorage.getItem(LEGACY_KEY);
+  if (!legacy) return;
+
+  try {
+    const parsed = JSON.parse(legacy) as { projects?: Project[]; muffs?: LegacyMuff[] };
+    const parts: PartEntry[] = (parsed.muffs ?? []).map((m) => ({
+      id: m.id,
+      projectId: m.projectId,
+      kind: 'muffe' as PartKind,
+      diameterMm: m.diameterMm,
+      diameterToMm: null,
+      count: m.muffCount,
+      testPressureBar: m.testPressureBar,
+      note: m.note ?? '',
+      sortOrder: m.sortOrder,
+      createdAt: m.createdAt,
+    }));
+    await AsyncStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify({ projects: parsed.projects ?? [], parts })
+    );
+  } catch {
+    // ignore corrupt legacy
+  }
+}
 
 async function read(): Promise<AppData> {
+  await migrateIfNeeded();
   const raw = await AsyncStorage.getItem(STORAGE_KEY);
   if (!raw) return emptyData();
   try {
-    const parsed = JSON.parse(raw) as AppData;
-    return {
-      projects: parsed.projects ?? [],
-      muffs: parsed.muffs ?? [],
-    };
+    const parsed = JSON.parse(raw) as AppData & { muffs?: LegacyMuff[] };
+    // tolerate accidental old shape
+    if (parsed.parts) {
+      return { projects: parsed.projects ?? [], parts: parsed.parts };
+    }
+    if (parsed.muffs) {
+      return {
+        projects: parsed.projects ?? [],
+        parts: parsed.muffs.map((m) => ({
+          id: m.id,
+          projectId: m.projectId,
+          kind: 'muffe' as PartKind,
+          diameterMm: m.diameterMm,
+          diameterToMm: null,
+          count: m.muffCount,
+          testPressureBar: m.testPressureBar,
+          note: m.note ?? '',
+          sortOrder: m.sortOrder,
+          createdAt: m.createdAt,
+        })),
+      };
+    }
+    return emptyData();
   } catch {
     return emptyData();
   }
@@ -22,6 +84,11 @@ async function read(): Promise<AppData> {
 
 async function write(data: AppData): Promise<void> {
   await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+}
+
+function touchProject(data: AppData, projectId: string) {
+  const project = data.projects.find((p) => p.id === projectId);
+  if (project) project.updatedAt = new Date().toISOString();
 }
 
 export async function newId(): Promise<string> {
@@ -92,79 +159,136 @@ export async function saveProject(
 export async function deleteProject(id: string): Promise<void> {
   const data = await read();
   data.projects = data.projects.filter((p) => p.id !== id);
-  data.muffs = data.muffs.filter((m) => m.projectId !== id);
+  data.parts = data.parts.filter((m) => m.projectId !== id);
   await write(data);
 }
 
-export async function listMuffs(projectId: string): Promise<MuffEntry[]> {
+export async function listParts(projectId: string): Promise<PartEntry[]> {
   const data = await read();
-  return data.muffs
+  return data.parts
     .filter((m) => m.projectId === projectId)
     .sort((a, b) => a.sortOrder - b.sortOrder || a.createdAt.localeCompare(b.createdAt));
 }
 
+/** @deprecated use listParts */
+export const listMuffs = listParts;
+
+export async function addPart(input: {
+  projectId: string;
+  kind: PartKind;
+  diameterMm: number;
+  diameterToMm?: number | null;
+  count: number;
+  testPressureBar?: number | null;
+  note?: string;
+}): Promise<PartEntry> {
+  const data = await read();
+  const siblings = data.parts.filter((m) => m.projectId === input.projectId);
+  const entry: PartEntry = {
+    id: await newId(),
+    projectId: input.projectId,
+    kind: input.kind,
+    diameterMm: input.diameterMm,
+    diameterToMm: input.diameterToMm ?? null,
+    count: input.count,
+    testPressureBar: input.testPressureBar ?? null,
+    note: input.note?.trim() ?? '',
+    sortOrder: siblings.length,
+    createdAt: new Date().toISOString(),
+  };
+  data.parts.push(entry);
+  touchProject(data, input.projectId);
+  await write(data);
+  return entry;
+}
+
+/** @deprecated use addPart */
 export async function addMuff(input: {
   projectId: string;
   diameterMm: number;
   muffCount: number;
   testPressureBar?: number | null;
   note?: string;
-}): Promise<MuffEntry> {
-  const data = await read();
-  const siblings = data.muffs.filter((m) => m.projectId === input.projectId);
-  const entry: MuffEntry = {
-    id: await newId(),
+}): Promise<PartEntry> {
+  return addPart({
     projectId: input.projectId,
+    kind: 'muffe',
     diameterMm: input.diameterMm,
-    muffCount: input.muffCount,
-    fittingsCount: null,
-    testPressureBar: input.testPressureBar ?? null,
-    note: input.note?.trim() ?? '',
-    sortOrder: siblings.length,
-    createdAt: new Date().toISOString(),
-  };
-  data.muffs.push(entry);
-
-  const project = data.projects.find((p) => p.id === input.projectId);
-  if (project) project.updatedAt = new Date().toISOString();
-
-  await write(data);
-  return entry;
+    count: input.muffCount,
+    testPressureBar: input.testPressureBar,
+    note: input.note,
+  });
 }
 
+export async function updatePart(
+  id: string,
+  patch: Partial<Pick<PartEntry, 'kind' | 'diameterMm' | 'diameterToMm' | 'count' | 'testPressureBar' | 'note'>>
+): Promise<PartEntry> {
+  const data = await read();
+  const idx = data.parts.findIndex((m) => m.id === id);
+  if (idx === -1) throw new Error('Tétel nem található');
+  data.parts[idx] = { ...data.parts[idx], ...patch };
+  touchProject(data, data.parts[idx].projectId);
+  await write(data);
+  return data.parts[idx];
+}
+
+/** @deprecated use updatePart */
 export async function updateMuff(
   id: string,
-  patch: Partial<Pick<MuffEntry, 'diameterMm' | 'muffCount' | 'testPressureBar' | 'note'>>
-): Promise<MuffEntry> {
-  const data = await read();
-  const idx = data.muffs.findIndex((m) => m.id === id);
-  if (idx === -1) throw new Error('Muff nem található');
-  data.muffs[idx] = { ...data.muffs[idx], ...patch };
-  const project = data.projects.find((p) => p.id === data.muffs[idx].projectId);
-  if (project) project.updatedAt = new Date().toISOString();
-  await write(data);
-  return data.muffs[idx];
+  patch: Partial<Pick<PartEntry, 'diameterMm' | 'count' | 'testPressureBar' | 'note'>> & { muffCount?: number }
+): Promise<PartEntry> {
+  const { muffCount, ...rest } = patch;
+  return updatePart(id, { ...rest, ...(muffCount != null ? { count: muffCount } : {}) });
 }
 
-export async function deleteMuff(id: string): Promise<void> {
+export async function adjustPartCount(id: string, delta: number): Promise<PartEntry | null> {
   const data = await read();
-  const entry = data.muffs.find((m) => m.id === id);
-  data.muffs = data.muffs.filter((m) => m.id !== id);
-  if (entry) {
-    const project = data.projects.find((p) => p.id === entry.projectId);
-    if (project) project.updatedAt = new Date().toISOString();
+  const idx = data.parts.findIndex((m) => m.id === id);
+  if (idx === -1) return null;
+  const next = data.parts[idx].count + delta;
+  if (next <= 0) {
+    const projectId = data.parts[idx].projectId;
+    data.parts.splice(idx, 1);
+    touchProject(data, projectId);
+    await write(data);
+    return null;
   }
+  data.parts[idx] = { ...data.parts[idx], count: next };
+  touchProject(data, data.parts[idx].projectId);
+  await write(data);
+  return data.parts[idx];
+}
+
+export async function deletePart(id: string): Promise<void> {
+  const data = await read();
+  const entry = data.parts.find((m) => m.id === id);
+  data.parts = data.parts.filter((m) => m.id !== id);
+  if (entry) touchProject(data, entry.projectId);
   await write(data);
 }
+
+/** @deprecated use deletePart */
+export const deleteMuff = deletePart;
+
+export type KindSummary = {
+  kind: PartKind;
+  count: number;
+  entryCount: number;
+};
 
 export type DiameterSummary = {
+  kind: PartKind;
   diameterMm: number;
-  muffCount: number;
+  diameterToMm: number | null;
+  count: number;
   entryCount: number;
 };
 
 export async function dailySummary(date: string): Promise<{
+  byKind: KindSummary[];
   byDiameter: DiameterSummary[];
+  totalParts: number;
   totalMuffs: number;
   projectCount: number;
   projects: Project[];
@@ -172,23 +296,59 @@ export async function dailySummary(date: string): Promise<{
   const data = await read();
   const projects = data.projects.filter((p) => p.date === date);
   const projectIds = new Set(projects.map((p) => p.id));
-  const muffs = data.muffs.filter((m) => projectIds.has(m.projectId));
+  const parts = data.parts.filter((m) => projectIds.has(m.projectId));
 
-  const map = new Map<number, DiameterSummary>();
-  for (const m of muffs) {
-    const cur = map.get(m.diameterMm) ?? { diameterMm: m.diameterMm, muffCount: 0, entryCount: 0 };
-    cur.muffCount += m.muffCount;
-    cur.entryCount += 1;
-    map.set(m.diameterMm, cur);
+  const kindMap = new Map<PartKind, KindSummary>();
+  const dimMap = new Map<string, DiameterSummary>();
+
+  for (const m of parts) {
+    const k = kindMap.get(m.kind) ?? { kind: m.kind, count: 0, entryCount: 0 };
+    k.count += m.count;
+    k.entryCount += 1;
+    kindMap.set(m.kind, k);
+
+    const key = `${m.kind}:${m.diameterMm}:${m.diameterToMm ?? ''}`;
+    const d =
+      dimMap.get(key) ??
+      ({
+        kind: m.kind,
+        diameterMm: m.diameterMm,
+        diameterToMm: m.diameterToMm,
+        count: 0,
+        entryCount: 0,
+      } satisfies DiameterSummary);
+    d.count += m.count;
+    d.entryCount += 1;
+    dimMap.set(key, d);
   }
 
-  const byDiameter = [...map.values()].sort((a, b) => a.diameterMm - b.diameterMm);
-  const totalMuffs = byDiameter.reduce((sum, row) => sum + row.muffCount, 0);
+  const byKind = [...kindMap.values()].sort((a, b) => a.kind.localeCompare(b.kind));
+  const byDiameter = [...dimMap.values()].sort(
+    (a, b) => a.kind.localeCompare(b.kind) || a.diameterMm - b.diameterMm
+  );
+  const totalParts = byKind.reduce((sum, row) => sum + row.count, 0);
+  const totalMuffs = kindMap.get('muffe')?.count ?? 0;
 
-  return { byDiameter, totalMuffs, projectCount: projects.length, projects };
+  return { byKind, byDiameter, totalParts, totalMuffs, projectCount: projects.length, projects };
 }
 
+export async function projectPartTotals(projectId: string): Promise<{
+  total: number;
+  muffe: number;
+  reduzir: number;
+  abzweig: number;
+}> {
+  const parts = await listParts(projectId);
+  const out = { total: 0, muffe: 0, reduzir: 0, abzweig: 0 };
+  for (const p of parts) {
+    out.total += p.count;
+    out[p.kind] += p.count;
+  }
+  return out;
+}
+
+/** @deprecated use projectPartTotals */
 export async function projectMuffTotal(projectId: string): Promise<number> {
-  const muffs = await listMuffs(projectId);
-  return muffs.reduce((sum, m) => sum + m.muffCount, 0);
+  const t = await projectPartTotals(projectId);
+  return t.total;
 }
