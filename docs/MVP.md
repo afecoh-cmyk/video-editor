@@ -40,4 +40,6 @@ Letölthető mobilapp, amivel a szerelő **nap végére** egyértelműen látja,
 
 ## Következő lépés a fejlesztésben
 
-Expo projekt scaffold → navigáció → Project + MuffEntry CRUD → napi összesítő UI.
+~~Expo projekt scaffold → navigáció → Project + MuffEntry CRUD → napi összesítő UI.~~ **Kész (MVP kód a repo gyökerében).**
+
+Tovább: Expo Go próba a telefonon, majd EAS build (letölthető APK/IPA), később PDF / aláírás / skicc.
