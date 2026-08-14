@@ -20,9 +20,9 @@ Expo Go-val telefonon.
 
 ## Dokumentáció
 
-- [AGENTS.md](AGENTS.md) — ügynök szabályok (magyar, 3-szintű architektúra)
+- [AGENTS.md](AGENTS.md) — Muffe Plan ügynök-szabályok (magyar)
 - [directives/](directives/) — folyamatleírások
-- [execution/](execution/) — fix scriptek (pl. typecheck)
+- [execution/](execution/) — typecheck / web-export
 - [docs/PRODUCT.md](docs/PRODUCT.md)
 - [docs/DATA-MODEL.md](docs/DATA-MODEL.md)
 - [docs/MVP.md](docs/MVP.md)

@@ -1,99 +1,84 @@
-# Ügynök Utasítások (Agent Instructions) — Muffe Plan
+# Ügynök Utasítások — Muffe Plan
 
 > [!IMPORTANT]
-> **NYELVI UTASÍTÁS / LANGUAGE INSTRUCTION**
-> Minden kommunikációt, beleértve a **terveket, jelentéseket, dokumentációkat** és a commit üzeneteket, szigorúan **MAGYAR** nyelven kell írni.
+> **Nyelv:** Minden kommunikáció, terv, jelentés, dokumentáció és **commit üzenet magyarul** legyen.
 >
-> **KONTEXTUS FIGYELMEZTETÉS / CONTEXT WARNING**
-> Figyeld a beszélgetés hosszát. Ha közeledsz a korlátokhoz, JELEZD a felhasználónak, hogy nyisson új lapot a folytatáshoz.
+> **Identitás:** Ha a felhasználó nevet ad (pl. „Mérnök”), azt használd.
 >
-> **IDENTITÁS ÉS EGYÜTTMŰKÖDÉS / IDENTITY & COLLABORATION**
->
-> 1. **Névhasználat / Identity**: Mindig használd a felhasználó által adott nevet. Ha elneveztek (pl. "Mérnök"), akkor az vagy.
-> 2. **Együttműködés / Collaboration**: Dolgozzatok együtt, szinkronban és összhangban.
+> **Együttműködés:** Gyakorlatiasan, röviden, a bajsztelepi használatra optimalizálva.
 
-> [!NOTE]
-> **Mi ez az egész? (Kezdőknek)**
-> Ez a fájl a "játékszabályokat" tartalmazza. Megmondja az AI-nak, hogyan kell viselkednie és hogyan kell a feladatokat megoldania.
-> Forrás: HFZ app `AGENTS.md`, adaptálva a **Muffe Plan** (Expo mobilapp) projektre.
+## Mi ez a projekt?
 
-## Tartalomjegyzék
+**Muffe Plan** — letölthető / webes mobilapp a távhő **Abnahmeprotokoll** papírjegyzőkönyv kiváltására.
 
-1. [A 3-Szintű Architektúra](#a-3-szintű-architektúra)
-2. [Működési Elvek](#működési-elvek)
-3. [Öngyógyító ciklus](#öngyógyító-ciklus-self-annealing-loop)
-4. [Fájlrendszer Szervezése](#fájlrendszer-szervezése)
-5. [Összegzés](#összegzés)
+A szerelő telefonon gyorsan felírja és módosítja:
 
-Egy 3-szintű architektúrában dolgozol, ami szétválasztja a feladatokat a maximális megbízhatóság érdekében. Az AI modellek valószínűségi alapon működnek (néha tippelnek), míg az üzleti logika nagy része meghatározott (determinisztikus) lépéseket igényel. Ez a rendszer kiküszöböli ezt az ellentmondást.
+| Típus | Mit rögzít |
+|---|---|
+| **Muffe** | DM + darabszám |
+| **Reduzir** | DM von → bis (pl. 315→250) |
+| **Abzweig** | Haupt DM + Abzweig DM |
 
-## A 3-Szintű Architektúra
+Cél: nap végére egyértelmű összesítés (30–40 tétel mellett is).
 
-**1. Szint: Irányelv (Directive - Mit kell tenni)**
+## Stack
 
-- Folyamatleírások (SOP) Markdown formátumban, a `directives/` mappában.
-- Meghatározzák a célokat, a bemeneteket, a használandó eszközöket/scripteket, a kimeneteket és a különleges eseteket.
-- Természetes nyelven írt utasítások, mintha egy munkatársnak adnál feladatot.
+- **Expo / React Native** (TypeScript)
+- Helyi tárolás: AsyncStorage (`muffe-plan:v2`)
+- Nincs backend az MVP-ben
+- Fő kód: `src/` · képernyők: `src/screens/`
 
-**2. Szint: Koordináció (Orchestration - Döntéshozatal)**
+## Hogyan dolgozz
 
-- Ez vagyok én. Az én feladatom az intelligens irányítás.
-- Elolvasom az irányelveket, a megfelelő sorrendben hívom meg a végrehajtó eszközöket, kezelem a hibákat, kérdezek, ha valami nem világos, és frissítem az irányelveket a tapasztalatok alapján.
-- Nem próbálok meg magamtól bonyolult műveleteket „fejből” végezni — elolvasom a megfelelő irányelvet a `directives/` mappából, kitalálom a paramétereket, majd lefuttatom a hozzá tartozó scriptet az `execution/` mappából.
+1. **Először olvasd** a releváns kódot / `docs/` / `directives/` fájlt — ne tippelj.
+2. **Kis, célzott változtatás** — ne refaktorálj mellékesen.
+3. **Typecheck** commit előtt: `bash execution/typecheck.sh`
+4. **UX prioritás:** gyors felírás, nagy +/− gombok, kevés gépelés a terepen.
+5. **Hibánál:** javíts → ellenőrizd → ha ismétlődő tanulság, frissítsd a megfelelő `directives/` fájlt (kérdezés nélkül csak bugfix / apró pontosítás; új irányelvet ne találj ki magadtól).
 
-**3. Szint: Végrehajtás (Execution - A munka elvégzése)**
+## Mit NE csinálj
 
-- Meghatározott módon működő scriptek az `execution/` mappában (bash / Node — Linux környezethez igazítva).
-- A környezeti változók, API kulcsok stb. a `.env` fájlban tárolódnak.
-- Kezelik a typechecket, buildet, exportot, adatellenőrzést.
-- Megbízható, tesztelhető, gyors. Manuális munka helyett scripteket használunk.
+- Ne hozd vissza a régi video-editor kódot.
+- Ne építs felesleges dashboardot, kártyaerdőt, purple/glow UI-t.
+- Ne tegyél titkokat a repóba (`.env` gitignore-ban van).
+- Ne ígérj telepítő-linket, amíg nincs tényleges web deploy / EAS build.
+- Ne töröld a muff/reduzir/abzweig +/− UX-et „szépítés” címén.
 
-**Miért működik ez?** Ha mindent magamtól (AI logikával) próbálnék megoldani, a hibák összeadódnának. A bonyolultságot a fix, meghatározott kódba (scriptekbe) rakjuk. Én a döntéshozatalra koncentrálok.
+## Fontos fájlok
 
-## Működési Elvek
+| Fájl | Szerep |
+|---|---|
+| `src/types.ts` | PartKind, PartEntry, DM lista |
+| `src/storage.ts` | Offline CRUD + napi összesítő |
+| `src/screens/MuffListScreen.tsx` | Gyors felírás / szerkesztés |
+| `src/screens/DailySummaryScreen.tsx` | Nap végi összesítés |
+| `src/screens/ProjectListScreen.tsx` | Projektlista |
+| `docs/PRODUCT.md` | Termékcél |
+| `docs/MVP.md` | MVP scope |
+| `directives/tetelek-rogzites.md` | Tétel UX szabályok |
 
-**1. Először ellenőrizd az eszközöket**
-Mielőtt scriptet írnál, ellenőrizd az `execution/` mappát az irányelvek alapján. Csak akkor hozz létre új scriptet, ha még nem létezik megfelelő.
+## Irányelvek és scriptek
 
-**2. Tanulj a hibákból (Self-annealing)**
+Ismétlődő, determinisztikus lépések:
 
-- Olvasd el a hibaüzenetet.
-- Javítsd ki a scriptet / kódot és teszteld újra (kivéve, ha fizetős API — ekkor kérdezd meg a felhasználót).
-- Frissítsd az irányelvet azzal, amit tanultál.
+- `directives/` — rövid SOP-ok (mit kell tenni)
+- `execution/` — scriptek (pl. typecheck)
 
-**3. Frissítsd az irányelveket menet közben**
-Az irányelvek élő dokumentumok. Új korlát / jobb megoldás / gyakori hiba → frissítsd az irányelvet. **Ne** hozz létre és ne írj felül irányelveket kérdezés nélkül, hacsak nincs rá külön utasítás.
+UI-fejlesztésnél a fő munka a `src/` kód — a scriptek a ellenőrzésre / buildre valók, nem helyettesítik az appot.
 
-## Öngyógyító ciklus (Self-annealing loop)
+## Öngyógyítás
 
-Ha valami elromlik:
+Ha elromlik valami:
 
-1. Javítsd ki
-2. Frissítsd az eszközt (scriptet)
-3. Teszteld, hogy működik-e
-4. Frissítsd az irányelvet az új folyamattal
-5. A rendszer most már erősebb
+1. Olvasd el a hibát
+2. Javítsd a kódot / scriptet
+3. Futtasd újra a typechecket / érintett lépést
+4. Ha tartós tanulság → frissítsd a `directives/` megfelelő fájlját
 
-## Fájlrendszer Szervezése
+## Kommunikáció a felhasználóval
 
-**Végtermékek vs. Köztes fájlok:**
+- Rövid, magyar, lényegre törő
+- Linket csak akkor adj, ha tényleg működik
+- Kérdezz, ha a terepi fogalom (muffe / reduzir / abzweig / DM) nem egyértelmű
 
-- **Végtermékek**: Expo / React Native app kód (`src/`, `App.tsx`), dokumentáció (`docs/`), letölthető build (EAS).
-- **Köztes fájlok**: ideiglenes exportok, logok.
-
-**Mappaszerkezet:**
-
-- `.tmp/` — ideiglenes fájlok (gitignore). Újragenerálható.
-- `execution/` — fix eszköz-scriptek (bash / node).
-- `directives/` — folyamatleírások Markdown-ban.
-- `.env` — titkok (gitignore).
-- `src/` — app forráskód.
-- `docs/` — termékterv / adatmodell / MVP.
-
-**Alapelv:** A `.tmp/` bármikor törölhető. A megbízható lépések az `execution/` scripteken mennek keresztül.
-
-## Összegzés
-
-Te az emberi szándék (irányelvek) és a fix végrehajtás (scriptek) között állsz. Olvasd az utasításokat, hozz döntéseket, hívj eszközöket, kezeld a hibákat és folyamatosan fejleszd a rendszert.
-
-Légy gyakorlatias. Légy megbízható. Tanulj a hibákból.
+Légy gyakorlatias. Légy megbízható. A bajsztelep a mérce.
