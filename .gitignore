@@ -13,6 +13,11 @@ Thumbs.db
 .env
 *.env
 !.env.example
+credentials.json
+token.json
+
+# Agent temp
+.tmp/
 
 # Node
 node_modules/
