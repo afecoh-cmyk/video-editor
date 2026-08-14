@@ -1,6 +1,13 @@
 # Muffe Plan
 
-Mobilapp a távhővezeték **Abnahmeprotokoll** papíros folyamatának kiváltására — fókuszban a **Schrumpfmuffen** napi nyomon követése (30–40 tétel is).
+Mobilapp a távhővezeték **Abnahmeprotokoll** papíros folyamatának kiváltására — gyors felírás és szerkesztés a telefonon.
+
+## Mit rögzít
+
+- **Muffe** + DM + darabszám
+- **Reduzir** + DM von→bis (pl. 315→250)
+- **Abzweig** + Haupt DM + Abzweig DM
+- Listán **+/−** gombokkal azonnali módosítás
 
 ## Futtatás
 
@@ -9,15 +16,7 @@ npm install
 npx expo start
 ```
 
-Ezután Expo Go-val telefonon, vagy `a` / `i` / `w` (Android / iOS szimulátor / web).
-
-## MVP funkciók
-
-1. **Projektlista** — bajsztelepek
-2. **Új / szerkesztett projekt** — Betreiber, Verlegefirma, Baustellenort, Datum
-3. **Muff lista** — DM chip + Stk. + Prüfdruck gyors hozzáadás, futó összesen
-4. **Napi összesítő** — DM szerinti csoportosítás az aznapi projektekre
-5. **Offline** — AsyncStorage helyi mentés
+Expo Go-val telefonon.
 
 ## Dokumentáció
 

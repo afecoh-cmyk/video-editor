@@ -10,47 +10,32 @@ Egy bajsztelep / egy átvételi jegyzőkönyv.
 | betreiber | string | Üzemeltető |
 | verlegefirma | string | Fektető cég |
 | baustellenort | string | Cím / helyszín |
-| measurementType | enum? | `ohmmeter` \| `mh3` \| null |
 | date | date | Jegyzőkönyv dátuma |
 | remarks | string? | Bemerkungen |
 | status | enum | `draft` \| `closed` |
-| createdAt | datetime | |
-| updatedAt | datetime | |
 
-## Entity: MuffEntry
+## Entity: PartEntry
 
-Egy sor a Druckprobenprotokollban — egy átmérőhöz tartozó muff-tétel.
+Egy tétel a projekten — muff, reduzir vagy abzweig.
 
 | Mező | Típus | Megjegyzés |
 |---|---|---|
 | id | uuid | |
 | projectId | uuid | FK → Project |
-| diameterMm | number | Mantelrohr DM (pl. 315) |
-| muffCount | number | Schrumpfmuffen Stk. |
-| fittingsCount | number? | Bögen / Formstücke (opcionális) |
-| testPressureBar | number? | Prüfdruck |
+| kind | enum | `muffe` \| `reduzir` \| `abzweig` |
+| diameterMm | number | Fő / von DM |
+| diameterToMm | number? | Reduzir: bis · Abzweig: Abzweig DM |
+| count | number | Stk. |
+| testPressureBar | number? | Prüfdruck (opcionális) |
 | note | string? | |
-| sortOrder | number | Lista sorrend |
-| createdAt | datetime | |
+| sortOrder | number | |
 
-**Szabály:** egy projekten belül több sor lehet ugyanazzal a DM-mel (külön szakaszok), vagy összevonható — MVP: **több sor engedélyezett**, az összesítő összead.
+### Példák
 
-## Entity: DailySummary (számított)
-
-Nem feltétlenül tárolt — lekérdezés:
-
-```
-SUM(muffCount) GROUP BY diameterMm
-WHERE project.date = today
-```
-
-## Későbbi entitások
-
-- `MeasurementRow` — ellenállás / szigetelés (Vorlauf, Rücklauf…)
-- `Sketch` — rajz / skicc blob vagy stroke lista
-- `Signature` — aláírás kép + aláíró név + dátum
+- Muffe DM 315 · 21 Stk.
+- Reduzir DM 315→250 · 2 Stk.
+- Abzweig DM 315 / Abz. 125 · 1 Stk.
 
 ## Tárolás (MVP)
 
-- Helyi adatbázis a telefonon (SQLite / async storage réteg)
-- Export: JSON backup + később PDF
+- AsyncStorage (`muffe-plan:v2`), v1 muff adatok automatikus migrációval
