@@ -32,7 +32,7 @@ export function KindChips({
                   style={[styles.chip, group.kinds.length > 3 && styles.chipWide, active && styles.chipActive]}
                   onPress={() => onChange(id)}
                 >
-                  <Text style={[styles.chipText, active && styles.chipTextActive]} numberOfLines={1}>
+                  <Text style={[styles.chipText, active && styles.chipTextActive]} numberOfLines={2}>
                     {compact ? meta.short : meta.label}
                   </Text>
                 </AnimatedPressable>
@@ -68,6 +68,6 @@ const styles = StyleSheet.create({
   },
   chipWide: { flexBasis: '47%', flexGrow: 1 },
   chipActive: { backgroundColor: colors.accent },
-  chipText: { fontWeight: '800', color: colors.ink, fontSize: 13 },
+  chipText: { fontWeight: '800', color: colors.ink, fontSize: 12, textAlign: 'center' },
   chipTextActive: { color: '#fff' },
 });

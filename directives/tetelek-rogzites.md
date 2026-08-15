@@ -10,10 +10,13 @@ A szerelő telefonon gyorsan felírja és módosítja:
 - **Abzweig** — Haupt DM + Abzweig DM
 
 **Hegesztett** (ha hegesztett muff kerül fel)
-- **Bogenmuffe** — egy DM + darabszám
-- **Montagebogen** — egy DM + darabszám
+- **Bogenmuffe** — sima bogen, egy DM + darabszám
 - **Montagemuffe** — egy DM + darabszám
 - **Reduzirmuffe** — DM von → bis (pl. 315→250)
+- **Endmuffe** — egy DM + darabszám
+- **Montageabzweig** — Haupt DM + Abzweig DM
+
+Nincs Montagebogen a választóban.
 
 ## Kapcsolódó kód
 
@@ -43,7 +46,7 @@ A szerelő telefonon gyorsan felírja és módosítja:
 7. Hosszú nyomás X módban vagy a `Muff (N)` gomb → közös típus + DM adatlap.
    - Az adatlapon a **Kijelölt X mérete** sor mindig mutatja a típust + DM-et.
    - A DM választó weben natív lista; Reduzir / Reduzirmuffe: DM von + DM bis, Abzweignél Haupt DM + Abzweig DM. Mindkét szám látszik és mentődik.
-   - A rajzon a Reduzir / Reduzirmuffe `315→250`, az Abzweig `315/200` feliratként jelenik meg. A hegesztett típusok rövidítése: BM / MB / MM / RM.
+   - A rajzon a Reduzir / Reduzirmuffe `315→250`, az Abzweig / Montageabzweig `315/200` feliratként jelenik meg. Hegesztett rövidítés: BM / MM / RM / EM / MA.
 8. Mentéskor az összes aktuális X külön 1 db PartEntry lesz. A később lerakott X-ek új csoportot alkotnak.
 9. Drótmérés ezen az adatlapon nincs.
 
@@ -53,7 +56,7 @@ A szerelő telefonon gyorsan felírja és módosítja:
 2. Listán minden sornál **+/−** azonnali darabszám-módosítás
 3. Koppintás = szerkesztő modal (típus, DM, Stk.)
 4. Hosszú nyomás / modal = törlés
-5. Fejléc: típus-rövidítések (M / R / A / BM / MB / MM / RM) + összes db — csak a nem nulla tételek
+5. Fejléc: típus-rövidítések (M / R / A / BM / MM / RM / EM / MA) + összes db — csak a nem nulla tételek
 6. Offline: minden helyi mentés
 
 ## Változtatásnál
