@@ -174,8 +174,8 @@ export function DrawingBoardScreen({ navigation, route }: Props) {
             const midY = (a.locationY + b.locationY) / 2;
             const distance = Math.hypot(b.locationX - a.locationX, b.locationY - a.locationY);
             const scale = Math.max(
-              0.6,
-              Math.min(5, viewRef.current.scale * (distance / Math.max(1, pinch.distance)))
+              0.7,
+              Math.min(3, viewRef.current.scale * (distance / Math.max(1, pinch.distance)))
             );
             updateView({
               scale,
@@ -334,6 +334,8 @@ export function DrawingBoardScreen({ navigation, route }: Props) {
   };
 
   const gridSpacing = 28 * view.scale;
+  const symbolScale = Math.max(0.75, Math.min(1.4, Math.sqrt(view.scale)));
+  const drawingWidth = Math.max(2, Math.min(4.5, 3 * Math.sqrt(view.scale)));
   const gridStartX = ((view.offsetX % gridSpacing) + gridSpacing) % gridSpacing;
   const gridStartY = ((view.offsetY % gridSpacing) + gridSpacing) % gridSpacing;
   const gridX = Array.from(
@@ -454,8 +456,12 @@ export function DrawingBoardScreen({ navigation, route }: Props) {
                 key={stroke.id}
                 d={pathFor(stroke.points)}
                 stroke="#154d78"
-                strokeWidth={3}
-                strokeDasharray={stroke.pipeKind === 'ruecklauf' ? '12 10' : undefined}
+                strokeWidth={drawingWidth}
+                strokeDasharray={
+                  stroke.pipeKind === 'ruecklauf'
+                    ? `${12 * symbolScale} ${10 * symbolScale}`
+                    : undefined
+                }
                 strokeLinecap="round"
                 strokeLinejoin="round"
                 fill="none"
@@ -477,6 +483,7 @@ export function DrawingBoardScreen({ navigation, route }: Props) {
                 },
                 part && styles.completedMarker,
                 isSelected && styles.selectedMarker,
+                { transform: [{ scale: symbolScale * (isSelected ? 1.1 : 1) }] },
               ]}
               onPress={(event) => {
                 event.stopPropagation();
@@ -728,7 +735,6 @@ const styles = StyleSheet.create({
   selectedMarker: {
     borderColor: colors.accent,
     backgroundColor: '#fff3e6',
-    transform: [{ scale: 1.15 }],
   },
   completedMarker: {
     width: 64,
