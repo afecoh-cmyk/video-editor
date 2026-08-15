@@ -672,16 +672,17 @@ export function DrawingBoardScreen({ navigation, route }: Props) {
             ))}
         </Svg>
 
-        {laidOutMarkers.map((item) =>
-          item.caption ? (
-            <Fragment key={item.id}>
-              <View
-                pointerEvents="none"
-                style={[
-                  styles.pipeTick,
-                  { left: item.pipeX - 3.5, top: item.pipeY - 3.5 },
-                ]}
-              />
+        {laidOutMarkers.map((item) => (
+          <Fragment key={item.id}>
+            <View
+              pointerEvents="none"
+              style={[
+                styles.pipeTick,
+                item.caption ? styles.pipeTickDone : styles.pipeTickOpen,
+                { left: item.pipeX - 5, top: item.pipeY - 5 },
+              ]}
+            />
+            {item.caption ? (
               <View
                 pointerEvents="none"
                 style={[
@@ -698,28 +699,9 @@ export function DrawingBoardScreen({ navigation, route }: Props) {
                   {item.caption}
                 </Text>
               </View>
-            </Fragment>
-          ) : (
-            <View
-              key={item.id}
-              pointerEvents="none"
-              style={[
-                styles.marker,
-                styles.openMarker,
-                {
-                  width: item.width,
-                  height: item.height,
-                  left: item.labelX,
-                  top: item.labelY,
-                },
-              ]}
-            >
-              <Text selectable={false} style={styles.xText}>
-                ×
-              </Text>
-            </View>
-          )
-        )}
+            ) : null}
+          </Fragment>
+        ))}
 
         {markers.length === 0 && strokes.length === 0 ? (
           <View pointerEvents="none" style={styles.help}>
@@ -970,21 +952,16 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     overflow: 'hidden',
   },
-  openMarker: {
-    borderRadius: 9,
-    backgroundColor: '#fff',
-    borderWidth: 1.5,
-    borderColor: colors.danger,
-  },
   pipeTick: {
     position: 'absolute',
-    width: 7,
-    height: 7,
-    borderRadius: 4,
-    backgroundColor: colors.total,
-    borderWidth: 1,
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    borderWidth: 1.5,
     borderColor: '#fff',
   },
+  pipeTickOpen: { backgroundColor: colors.danger },
+  pipeTickDone: { backgroundColor: colors.total },
   completedMarker: {
     position: 'absolute',
     borderRadius: 5,
@@ -996,7 +973,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 3,
   },
   completedCaption: { color: colors.ink, fontSize: 10, fontWeight: '800', lineHeight: 12 },
-  xText: { color: colors.danger, fontSize: 13, fontWeight: '900', lineHeight: 14 },
   status: {
     minHeight: 48,
     paddingHorizontal: spacing.md,
