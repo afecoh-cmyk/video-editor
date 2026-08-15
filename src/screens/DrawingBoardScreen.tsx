@@ -53,6 +53,7 @@ export function DrawingBoardScreen({ navigation, route }: Props) {
   const [draftPoints, setDraftPoints] = useState<CanvasPoint[]>([]);
   const [size, setSize] = useState({ width: 1, height: 1 });
   const [modalOpen, setModalOpen] = useState(false);
+  const [projectMenuOpen, setProjectMenuOpen] = useState(false);
   const [kind, setKind] = useState<PartKind>('muffe');
   const [diameter, setDiameter] = useState('315');
   const [diameterTo, setDiameterTo] = useState('250');
@@ -84,28 +85,12 @@ export function DrawingBoardScreen({ navigation, route }: Props) {
       headerRight: () => (
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel="Projekt törlése"
+          accessibilityLabel="Projekt menü"
           hitSlop={12}
-          onPress={() =>
-            Alert.alert(
-              'Projekt törlése',
-              'Biztosan törlöd a projektet, a rajzot és az összes muffot?',
-              [
-                { text: 'Mégse', style: 'cancel' },
-                {
-                  text: 'Törlés',
-                  style: 'destructive',
-                  onPress: async () => {
-                    await deleteProject(projectId);
-                    navigation.navigate('ProjectList');
-                  },
-                },
-              ]
-            )
-          }
-          style={styles.headerDelete}
+          onPress={() => setProjectMenuOpen(true)}
+          style={styles.headerMenu}
         >
-          <Text selectable={false} style={styles.headerDeleteText}>✕</Text>
+          <Text selectable={false} style={styles.headerMenuText}>⋮</Text>
         </Pressable>
       ),
     });
@@ -360,6 +345,25 @@ export function DrawingBoardScreen({ navigation, route }: Props) {
     (_, index) => gridStartY + index * gridSpacing
   );
 
+  const confirmProjectDelete = () => {
+    setProjectMenuOpen(false);
+    Alert.alert(
+      'Projekt törlése',
+      'Biztosan törlöd a projektet, a rajzot és az összes muffot?',
+      [
+        { text: 'Mégse', style: 'cancel' },
+        {
+          text: 'Törlés',
+          style: 'destructive',
+          onPress: async () => {
+            await deleteProject(projectId);
+            navigation.navigate('ProjectList');
+          },
+        },
+      ]
+    );
+  };
+
   return (
     <View style={styles.screen}>
       <View style={styles.toolbar}>
@@ -519,6 +523,34 @@ export function DrawingBoardScreen({ navigation, route }: Props) {
         </Pressable>
       </View>
 
+      <Modal
+        visible={projectMenuOpen}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setProjectMenuOpen(false)}
+      >
+        <Pressable style={styles.menuBackdrop} onPress={() => setProjectMenuOpen(false)}>
+          <View style={styles.projectMenu}>
+            <Text style={styles.projectMenuTitle}>Projekt menü</Text>
+            <Pressable
+              style={styles.menuRow}
+              onPress={() => {
+                setProjectMenuOpen(false);
+                navigation.navigate('ProjectForm', { projectId });
+              }}
+            >
+              <Text style={styles.menuRowText}>Projekt szerkesztése</Text>
+            </Pressable>
+            <Pressable style={styles.menuRow} onPress={confirmProjectDelete}>
+              <Text style={styles.menuDeleteText}>Projekt törlése</Text>
+            </Pressable>
+            <Pressable style={styles.menuCancel} onPress={() => setProjectMenuOpen(false)}>
+              <Text style={styles.menuCancelText}>Mégse</Text>
+            </Pressable>
+          </View>
+        </Pressable>
+      </Modal>
+
       <Modal visible={modalOpen} transparent animationType="slide" onRequestClose={() => setModalOpen(false)}>
         <Pressable style={styles.backdrop} onPress={() => setModalOpen(false)}>
           <Pressable style={styles.sheet} onPress={(event) => event.stopPropagation()}>
@@ -611,7 +643,7 @@ const webGestureLock =
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: '#dfe5e8' },
-  headerDelete: {
+  headerMenu: {
     width: 36,
     height: 36,
     borderRadius: 18,
@@ -619,7 +651,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  headerDeleteText: { color: '#fff', fontSize: 21, fontWeight: '800', lineHeight: 23 },
+  headerMenuText: { color: '#fff', fontSize: 27, fontWeight: '800', lineHeight: 28 },
   toolbar: {
     flexDirection: 'row',
     gap: 6,
@@ -718,6 +750,36 @@ const styles = StyleSheet.create({
   },
   statusText: { flex: 1, color: '#fff', fontWeight: '600', fontSize: 13 },
   listLink: { color: '#ffb66d', fontWeight: '800', marginLeft: 10 },
+  menuBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.35)',
+    justifyContent: 'flex-start',
+    alignItems: 'flex-end',
+    paddingTop: 58,
+    paddingRight: 10,
+  },
+  projectMenu: {
+    width: 250,
+    backgroundColor: colors.surface,
+    borderRadius: 12,
+    padding: 8,
+    shadowColor: '#000',
+    shadowOpacity: 0.22,
+    shadowRadius: 10,
+    elevation: 8,
+  },
+  projectMenuTitle: {
+    color: colors.muted,
+    fontSize: 12,
+    fontWeight: '800',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  menuRow: { paddingHorizontal: 12, paddingVertical: 14, borderRadius: 8 },
+  menuRowText: { color: colors.ink, fontSize: 16, fontWeight: '700' },
+  menuDeleteText: { color: colors.danger, fontSize: 16, fontWeight: '800' },
+  menuCancel: { paddingHorizontal: 12, paddingVertical: 12, alignItems: 'center' },
+  menuCancelText: { color: colors.muted, fontWeight: '700' },
   backdrop: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.42)',
