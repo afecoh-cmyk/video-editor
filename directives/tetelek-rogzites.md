@@ -48,7 +48,7 @@ Nincs Montagebogen a választóban.
    - A DM választó weben natív lista; Reduzir / Reduzirmuffe: DM von + DM bis, Abzweignél Haupt DM + Abzweig DM. Mindkét szám látszik és mentődik.
    - A rajzon a Reduzir / Reduzirmuffe `315→250`, az Abzweig / Montageabzweig `315/200` feliratként jelenik meg. Hegesztett rövidítés: BM / MM / RM / EM / MA.
    - A muff a papíron **X**: piros = nyitott, zöld = kész.
-   - Alul mindig a táblázat: `6 db 90 M`. X-re vagy chipre koppintva kijelölődik a csoport: az X-ek keretet kapnak, alul a chip és a státuszsor mutatja, mi van kijelölve.
+   - Alul mindig a táblázat teljes névvel: `6 db 90 Muffe` · `2 db 90→110 Reduzir`.
 8. Mentéskor az összes aktuális X külön 1 db PartEntry lesz. A később lerakott X-ek új csoportot alkotnak.
 9. Drótmérés ezen az adatlapon nincs.
 

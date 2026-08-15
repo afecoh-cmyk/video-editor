@@ -1,7 +1,7 @@
 import type { Size } from './pipeGeometry';
 import {
   formatKindDims,
-  partKindShort,
+  partKindLabel,
   type CanvasMarker,
   type PartEntry,
   type PartKind,
@@ -36,10 +36,10 @@ export const OPEN_GROUP_KEY = 'open';
 
 export function formatGroupChip(group: MarkerGroup): string {
   if (!group.kind || group.diameterMm == null) {
-    return `${group.count} db X`;
+    return `${group.count} db aktuális X`;
   }
   const dm = formatKindDims(group.kind, group.diameterMm, group.diameterToMm).replace(/^DM\s+/, '');
-  return `${group.count} db ${dm} ${partKindShort(group.kind)}`;
+  return `${group.count} db ${dm} ${partKindLabel(group.kind)}`;
 }
 
 export function layoutCanvasMarkers(
