@@ -9,7 +9,6 @@ import {
   Text,
   TextInput,
   View,
-  type GestureResponderEvent,
   type LayoutChangeEvent,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
@@ -59,6 +58,8 @@ export function DrawingBoardScreen({ navigation, route }: Props) {
   const [pipeKind, setPipeKind] = useState<PipeLineKind>('vorlauf');
   const [view, setView] = useState<ViewTransform>({ scale: 1, offsetX: 0, offsetY: 0 });
   const drawingRef = useRef<CanvasPoint[]>([]);
+  const markerTapRef = useRef<{ x: number; y: number } | null>(null);
+  const markerPlacementRef = useRef<(x: number, y: number) => Promise<void>>(async () => {});
   const viewRef = useRef(view);
   const pinchRef = useRef<{
     distance: number;
@@ -126,12 +127,19 @@ export function DrawingBoardScreen({ navigation, route }: Props) {
         onMoveShouldSetPanResponderCapture: (event) =>
           event.nativeEvent.touches.length >= 2 || pinchRef.current != null,
         onStartShouldSetPanResponder: (event) =>
-          event.nativeEvent.touches.length >= 2 || mode === 'draw',
+          event.nativeEvent.touches.length >= 2 || mode === 'draw' || mode === 'mark',
         onMoveShouldSetPanResponder: (event) =>
-          event.nativeEvent.touches.length >= 2 || mode === 'draw',
+          event.nativeEvent.touches.length >= 2 || mode === 'draw' || mode === 'mark',
         onPanResponderGrant: (event) => {
           if (event.nativeEvent.touches.length >= 2) {
             beginPinch(event.nativeEvent.touches);
+            return;
+          }
+          if (mode === 'mark') {
+            markerTapRef.current = {
+              x: event.nativeEvent.locationX,
+              y: event.nativeEvent.locationY,
+            };
             return;
           }
           if (mode !== 'draw') return;
@@ -179,6 +187,12 @@ export function DrawingBoardScreen({ navigation, route }: Props) {
             setDraftPoints([]);
             return;
           }
+          if (mode === 'mark') {
+            const tap = markerTapRef.current;
+            markerTapRef.current = null;
+            if (tap) await markerPlacementRef.current(tap.x, tap.y);
+            return;
+          }
           const points = drawingRef.current;
           drawingRef.current = [];
           setDraftPoints([]);
@@ -187,6 +201,7 @@ export function DrawingBoardScreen({ navigation, route }: Props) {
         },
         onPanResponderTerminate: () => {
           pinchRef.current = null;
+          markerTapRef.current = null;
           drawingRef.current = [];
           setDraftPoints([]);
         },
@@ -240,13 +255,11 @@ export function DrawingBoardScreen({ navigation, route }: Props) {
         }
       }
     }
-    return best && best.distance <= 52 ? best.point : null;
+    return best && best.distance <= 90 ? best.point : null;
   };
 
-  const onCanvasPress = async (event: GestureResponderEvent) => {
-    if (mode !== 'mark') return;
-    const { locationX, locationY } = event.nativeEvent;
-    const snapped = nearestPointOnPipe(locationX, locationY);
+  const placeMarkerAt = async (screenX: number, screenY: number) => {
+    const snapped = nearestPointOnPipe(screenX, screenY);
     if (!snapped) {
       Alert.alert('Nincs csővonal a közelben', 'Koppints közelebb a megrajzolt VL vagy RL vonalhoz.');
       return;
@@ -254,6 +267,7 @@ export function DrawingBoardScreen({ navigation, route }: Props) {
     await addCanvasMarker(projectId, snapped);
     await load();
   };
+  markerPlacementRef.current = placeMarkerAt;
 
   const toggleMarker = (marker: CanvasMarker) => {
     if (mode !== 'select' || marker.partId) return;
@@ -371,10 +385,9 @@ export function DrawingBoardScreen({ navigation, route }: Props) {
       >
         <Pressable
           style={StyleSheet.absoluteFill}
-          onPress={onCanvasPress}
           onLongPress={openConvert}
           delayLongPress={550}
-          disabled={mode === 'draw'}
+          disabled={mode !== 'select'}
         />
         <Svg width="100%" height="100%" style={StyleSheet.absoluteFill} pointerEvents="none">
           {gridX.map((x, index) => (
