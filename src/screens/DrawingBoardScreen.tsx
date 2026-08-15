@@ -364,8 +364,8 @@ export function DrawingBoardScreen({ navigation, route }: Props) {
     [markers, partsById]
   );
   const laidOutMarkers = useMemo(
-    () => layoutCanvasMarkers(markers, partsById, size, view, markerGroups),
-    [markers, partsById, size, view, markerGroups]
+    () => layoutCanvasMarkers(markers, partsById, size, view),
+    [markers, partsById, size, view]
   );
 
   const pathFor = (points: CanvasPoint[]) =>
@@ -680,7 +680,7 @@ export function DrawingBoardScreen({ navigation, route }: Props) {
                 styles.xMark,
                 item.open ? styles.xMarkOpen : styles.xMarkDone,
                 selected && styles.xMarkSelected,
-                { left: item.pipeX - 8, top: item.pipeY - 8 },
+                { left: item.pipeX - 9, top: item.pipeY - 9 },
               ]}
             >
               <Text
@@ -691,7 +691,7 @@ export function DrawingBoardScreen({ navigation, route }: Props) {
                   selected && styles.xTextSelected,
                 ]}
               >
-                {item.open || item.nr == null ? '×' : String(item.nr)}
+                ×
               </Text>
             </View>
           );
@@ -968,16 +968,20 @@ const styles = StyleSheet.create({
   helpText: { color: '#9ba6ab', textAlign: 'center', fontSize: 15, lineHeight: 21 },
   xMark: {
     position: 'absolute',
-    width: 16,
-    height: 16,
-    borderRadius: 8,
+    width: 18,
+    height: 18,
+    borderRadius: 4,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  xMarkOpen: { backgroundColor: '#fff', borderWidth: 1, borderColor: colors.danger },
-  xMarkDone: { backgroundColor: '#fff', borderWidth: 1, borderColor: colors.total },
-  xMarkSelected: { borderColor: colors.accent, borderWidth: 2, backgroundColor: colors.accentSoft },
-  xText: { fontSize: 10, fontWeight: '900', lineHeight: 12 },
+  xMarkOpen: { backgroundColor: 'rgba(255,255,255,0.92)' },
+  xMarkDone: { backgroundColor: 'rgba(255,255,255,0.72)' },
+  xMarkSelected: {
+    backgroundColor: '#fff',
+    borderWidth: 2,
+    borderColor: colors.accent,
+  },
+  xText: { fontSize: 16, fontWeight: '900', lineHeight: 17 },
   xTextOpen: { color: colors.danger },
   xTextDone: { color: colors.total },
   xTextSelected: { color: colors.accent },
