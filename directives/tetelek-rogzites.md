@@ -19,7 +19,7 @@ A szerelő telefonon gyorsan felírja és módosítja:
 
 1. A projekt megnyitása a teljes képernyős rajzlapra visz.
 2. A rajzlap kockás; **két ujjal nagyítható és mozgatható**, így nagy csőrendszer is elfér.
-3. Rajzoláskor vonaltípust kell választani: **VL / Vorlauf** (meleg előremenő, folytonos) vagy **RL / Rücklauf** (visszatérő, szaggatott).
+3. Egy rajzmozdulat automatikusan **két párhuzamos vonalat** készít: **VL / Vorlauf** (meleg előremenő, folytonos) + **RL / Rücklauf** (visszatérő, szaggatott).
 4. **Rajz** az alapmód; az **X módot külön aktiválni kell**.
 5. X módban a koppintás a legközelebbi megrajzolt VL/RL vonalra illeszti az X-et; vonal mellé nem menthető.
 6. Kijelöl módban az X-ek egyenként választhatók.

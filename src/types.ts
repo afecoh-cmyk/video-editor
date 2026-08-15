@@ -54,6 +54,8 @@ export type CanvasStroke = {
   points: CanvasPoint[];
   /** Vorlauf = folytonos, Rücklauf = szaggatott. Régi rajznál hiányozhat. */
   pipeKind?: PipeLineKind;
+  /** Az egy mozdulattal rajzolt VL/RL pár közös azonosítója. */
+  pairId?: string;
   createdAt: string;
 };
 

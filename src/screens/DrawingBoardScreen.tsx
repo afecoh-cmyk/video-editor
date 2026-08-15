@@ -17,7 +17,7 @@ import Svg, { Line, Path } from 'react-native-svg';
 import type { RootStackParamList } from '../navigation';
 import {
   addCanvasMarker,
-  addCanvasStroke,
+  addCanvasStrokePair,
   convertMarkersToParts,
   deleteProject,
   getCanvas,
@@ -35,13 +35,37 @@ import {
   type CanvasStroke,
   type PartEntry,
   type PartKind,
-  type PipeLineKind,
 } from '../types';
 import { colors, spacing } from '../theme';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'DrawingBoard'>;
 type Mode = 'draw' | 'mark' | 'select';
 type ViewTransform = { scale: number; offsetX: number; offsetY: number };
+
+function offsetPipe(
+  points: CanvasPoint[],
+  offsetPx: number,
+  size: { width: number; height: number }
+): CanvasPoint[] {
+  return points.map((point, index) => {
+    const before = points[Math.max(0, index - 1)];
+    const after = points[Math.min(points.length - 1, index + 1)];
+    const dx = (after.x - before.x) * size.width;
+    const dy = (after.y - before.y) * size.height;
+    const length = Math.hypot(dx, dy) || 1;
+    return {
+      x: point.x + (-dy / length) * (offsetPx / size.width),
+      y: point.y + (dx / length) * (offsetPx / size.height),
+    };
+  });
+}
+
+function makePipePair(
+  points: CanvasPoint[],
+  size: { width: number; height: number }
+): [CanvasPoint[], CanvasPoint[]] {
+  return [offsetPipe(points, -8, size), offsetPipe(points, 8, size)];
+}
 
 export function DrawingBoardScreen({ navigation, route }: Props) {
   const { projectId } = route.params;
@@ -54,10 +78,10 @@ export function DrawingBoardScreen({ navigation, route }: Props) {
   const [size, setSize] = useState({ width: 1, height: 1 });
   const [modalOpen, setModalOpen] = useState(false);
   const [projectMenuOpen, setProjectMenuOpen] = useState(false);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [kind, setKind] = useState<PartKind>('muffe');
   const [diameter, setDiameter] = useState('315');
   const [diameterTo, setDiameterTo] = useState('250');
-  const [pipeKind, setPipeKind] = useState<PipeLineKind>('vorlauf');
   const [view, setView] = useState<ViewTransform>({ scale: 1, offsetX: 0, offsetY: 0 });
   const drawingRef = useRef<CanvasPoint[]>([]);
   const markerTapRef = useRef<{ x: number; y: number } | null>(null);
@@ -211,7 +235,8 @@ export function DrawingBoardScreen({ navigation, route }: Props) {
           const points = drawingRef.current;
           drawingRef.current = [];
           setDraftPoints([]);
-          await addCanvasStroke(projectId, points, pipeKind);
+          const [vorlauf, ruecklauf] = makePipePair(points, size);
+          await addCanvasStrokePair(projectId, vorlauf, ruecklauf);
           await load();
         },
         onPanResponderTerminate: () => {
@@ -221,7 +246,7 @@ export function DrawingBoardScreen({ navigation, route }: Props) {
           setDraftPoints([]);
         },
       }),
-    [beginPinch, load, mode, pipeKind, projectId, screenToWorld, updateView]
+    [beginPinch, load, mode, projectId, screenToWorld, size, updateView]
   );
 
   const partsById = useMemo(() => new Map(parts.map((p) => [p.id, p])), [parts]);
@@ -346,24 +371,11 @@ export function DrawingBoardScreen({ navigation, route }: Props) {
     { length: Math.ceil(size.height / gridSpacing) + 1 },
     (_, index) => gridStartY + index * gridSpacing
   );
+  const draftPair = draftPoints.length ? makePipePair(draftPoints, size) : null;
 
   const confirmProjectDelete = () => {
     setProjectMenuOpen(false);
-    Alert.alert(
-      'Projekt törlése',
-      'Biztosan törlöd a projektet, a rajzot és az összes muffot?',
-      [
-        { text: 'Mégse', style: 'cancel' },
-        {
-          text: 'Törlés',
-          style: 'destructive',
-          onPress: async () => {
-            await deleteProject(projectId);
-            navigation.navigate('ProjectList');
-          },
-        },
-      ]
-    );
+    setDeleteConfirmOpen(true);
   };
 
   return (
@@ -393,26 +405,6 @@ export function DrawingBoardScreen({ navigation, route }: Props) {
           <Text style={styles.toolText}>↶</Text>
         </Pressable>
       </View>
-
-      {mode === 'draw' ? (
-        <View style={styles.pipeSelector}>
-          <Text style={styles.pipeSelectorLabel}>Csővonal:</Text>
-          <Pressable
-            style={[styles.pipeButton, pipeKind === 'vorlauf' && styles.pipeButtonActive]}
-            onPress={() => setPipeKind('vorlauf')}
-          >
-            <Text style={styles.pipeSample}>━━━━</Text>
-            <Text style={styles.pipeButtonText}>VL · Vorlauf (meleg)</Text>
-          </Pressable>
-          <Pressable
-            style={[styles.pipeButton, pipeKind === 'ruecklauf' && styles.pipeButtonActive]}
-            onPress={() => setPipeKind('ruecklauf')}
-          >
-            <Text style={styles.pipeSample}>┄ ┄ ┄</Text>
-            <Text style={styles.pipeButtonText}>RL · Rücklauf</Text>
-          </Pressable>
-        </View>
-      ) : null}
 
       <View
         style={[styles.canvas, webGestureLock]}
@@ -450,7 +442,12 @@ export function DrawingBoardScreen({ navigation, route }: Props) {
           ))}
           {[
             ...strokes,
-            ...(draftPoints.length ? [{ id: 'draft', points: draftPoints, pipeKind }] : []),
+            ...(draftPair
+              ? [
+                  { id: 'draft-vl', points: draftPair[0], pipeKind: 'vorlauf' as const },
+                  { id: 'draft-rl', points: draftPair[1], pipeKind: 'ruecklauf' as const },
+                ]
+              : []),
           ].map((stroke) => (
               <Path
                 key={stroke.id}
@@ -508,8 +505,8 @@ export function DrawingBoardScreen({ navigation, route }: Props) {
           <View pointerEvents="none" style={styles.help}>
             <Text selectable={false} style={styles.helpTitle}>Rajzold fel a szakaszt</Text>
             <Text selectable={false} style={styles.helpText}>
-              Rajzold meg a folytonos VL és a szaggatott RL vonalat. Ezután kapcsold be a „＋ X”
-              módot, és koppints a vonal közelébe.
+              Egy vonalat rajzolj: a folytonos VL és a szaggatott RL automatikusan együtt készül.
+              Ezután kapcsold be a „＋ X” módot.
             </Text>
           </View>
         ) : null}
@@ -518,7 +515,7 @@ export function DrawingBoardScreen({ navigation, route }: Props) {
       <View style={styles.status}>
         <Text style={styles.statusText}>
           {mode === 'draw'
-            ? 'Rajz mód aktív · 2 ujjal nagyítás és mozgatás'
+            ? 'Rajzolj egyszer — VL + RL együtt készül · 2 ujjal zoom'
             : mode === 'mark'
               ? 'X mód aktív — az X a legközelebbi csővonalra ugrik'
               : selected.size
@@ -556,6 +553,37 @@ export function DrawingBoardScreen({ navigation, route }: Props) {
             </Pressable>
           </View>
         </Pressable>
+      </Modal>
+
+      <Modal
+        visible={deleteConfirmOpen}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setDeleteConfirmOpen(false)}
+      >
+        <View style={styles.confirmBackdrop}>
+          <View style={styles.confirmCard}>
+            <Text style={styles.confirmTitle}>Projekt törlése?</Text>
+            <Text style={styles.confirmText}>
+              A projekt, a teljes rajz és az összes muff végleg törlődik.
+            </Text>
+            <View style={styles.confirmActions}>
+              <Pressable style={styles.confirmCancel} onPress={() => setDeleteConfirmOpen(false)}>
+                <Text style={styles.confirmCancelText}>Mégse</Text>
+              </Pressable>
+              <Pressable
+                style={styles.confirmDelete}
+                onPress={async () => {
+                  setDeleteConfirmOpen(false);
+                  await deleteProject(projectId);
+                  navigation.navigate('ProjectList');
+                }}
+              >
+                <Text style={styles.confirmDeleteText}>Projekt törlése</Text>
+              </Pressable>
+            </View>
+          </View>
+        </View>
       </Modal>
 
       <Modal visible={modalOpen} transparent animationType="slide" onRequestClose={() => setModalOpen(false)}>
@@ -667,27 +695,6 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
   },
-  pipeSelector: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: 8,
-    paddingBottom: 8,
-    backgroundColor: colors.surface,
-  },
-  pipeSelectorLabel: { color: colors.muted, fontSize: 12, fontWeight: '700' },
-  pipeButton: {
-    flex: 1,
-    minHeight: 42,
-    paddingHorizontal: 8,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: colors.border,
-    justifyContent: 'center',
-  },
-  pipeButtonActive: { borderColor: colors.accent, backgroundColor: '#fff3e6' },
-  pipeSample: { color: '#154d78', fontWeight: '900', lineHeight: 13 },
-  pipeButtonText: { color: colors.ink, fontSize: 11, fontWeight: '700' },
   toolButton: {
     minHeight: 42,
     paddingHorizontal: 12,
@@ -786,6 +793,36 @@ const styles = StyleSheet.create({
   menuDeleteText: { color: colors.danger, fontSize: 16, fontWeight: '800' },
   menuCancel: { paddingHorizontal: 12, paddingVertical: 12, alignItems: 'center' },
   menuCancelText: { color: colors.muted, fontWeight: '700' },
+  confirmBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.48)',
+    justifyContent: 'center',
+    padding: spacing.lg,
+  },
+  confirmCard: {
+    backgroundColor: colors.surface,
+    borderRadius: 16,
+    padding: spacing.lg,
+  },
+  confirmTitle: { color: colors.ink, fontSize: 22, fontWeight: '800' },
+  confirmText: { color: colors.muted, fontSize: 15, lineHeight: 21, marginTop: 8 },
+  confirmActions: { flexDirection: 'row', gap: 10, marginTop: spacing.lg },
+  confirmCancel: {
+    flex: 1,
+    paddingVertical: 14,
+    borderRadius: 10,
+    backgroundColor: colors.bg,
+    alignItems: 'center',
+  },
+  confirmCancelText: { color: colors.ink, fontWeight: '800' },
+  confirmDelete: {
+    flex: 1.4,
+    paddingVertical: 14,
+    borderRadius: 10,
+    backgroundColor: colors.danger,
+    alignItems: 'center',
+  },
+  confirmDeleteText: { color: '#fff', fontWeight: '800' },
   backdrop: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.42)',

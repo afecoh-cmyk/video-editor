@@ -241,6 +241,37 @@ export async function addCanvasStroke(
   return stroke;
 }
 
+export async function addCanvasStrokePair(
+  projectId: string,
+  vorlaufPoints: CanvasPoint[],
+  ruecklaufPoints: CanvasPoint[]
+): Promise<void> {
+  if (vorlaufPoints.length < 2 || ruecklaufPoints.length < 2) return;
+  const data = await read();
+  const pairId = await newId();
+  const createdAt = new Date().toISOString();
+  data.canvasStrokes.push(
+    {
+      id: await newId(),
+      pairId,
+      projectId,
+      points: vorlaufPoints,
+      pipeKind: 'vorlauf',
+      createdAt,
+    },
+    {
+      id: await newId(),
+      pairId,
+      projectId,
+      points: ruecklaufPoints,
+      pipeKind: 'ruecklauf',
+      createdAt,
+    }
+  );
+  touchProject(data, projectId);
+  await write(data);
+}
+
 export async function undoCanvasAction(projectId: string): Promise<void> {
   const data = await read();
   const markers = data.canvasMarkers.filter((m) => m.projectId === projectId);
@@ -252,7 +283,9 @@ export async function undoCanvasAction(projectId: string): Promise<void> {
     if (marker.partId) data.parts = data.parts.filter((p) => p.id !== marker.partId);
     data.canvasMarkers = data.canvasMarkers.filter((m) => m.id !== marker.id);
   } else if (stroke) {
-    data.canvasStrokes = data.canvasStrokes.filter((s) => s.id !== stroke.id);
+    data.canvasStrokes = data.canvasStrokes.filter((s) =>
+      stroke.pairId ? s.pairId !== stroke.pairId : s.id !== stroke.id
+    );
   }
   touchProject(data, projectId);
   await write(data);
