@@ -42,6 +42,55 @@ type Props = NativeStackScreenProps<RootStackParamList, 'DrawingBoard'>;
 type Mode = 'draw' | 'mark';
 type ViewTransform = { scale: number; offsetX: number; offsetY: number };
 
+function pointToSegmentDistance(
+  point: CanvasPoint,
+  start: CanvasPoint,
+  end: CanvasPoint,
+  size: { width: number; height: number }
+): number {
+  const px = point.x * size.width;
+  const py = point.y * size.height;
+  const ax = start.x * size.width;
+  const ay = start.y * size.height;
+  const bx = end.x * size.width;
+  const by = end.y * size.height;
+  const dx = bx - ax;
+  const dy = by - ay;
+  const lengthSquared = dx * dx + dy * dy;
+  const ratio =
+    lengthSquared === 0
+      ? 0
+      : Math.max(0, Math.min(1, ((px - ax) * dx + (py - ay) * dy) / lengthSquared));
+  return Math.hypot(px - (ax + ratio * dx), py - (ay + ratio * dy));
+}
+
+/** Ramer–Douglas–Peucker: a kézremegést eltávolítja, a valódi sarkokat megtartja. */
+function simplifyPipePath(
+  points: CanvasPoint[],
+  size: { width: number; height: number },
+  tolerancePx: number
+): CanvasPoint[] {
+  if (points.length <= 2) return points;
+  let farthestIndex = 0;
+  let farthestDistance = 0;
+  for (let index = 1; index < points.length - 1; index += 1) {
+    const distance = pointToSegmentDistance(
+      points[index],
+      points[0],
+      points[points.length - 1],
+      size
+    );
+    if (distance > farthestDistance) {
+      farthestDistance = distance;
+      farthestIndex = index;
+    }
+  }
+  if (farthestDistance <= tolerancePx) return [points[0], points[points.length - 1]];
+  const left = simplifyPipePath(points.slice(0, farthestIndex + 1), size, tolerancePx);
+  const right = simplifyPipePath(points.slice(farthestIndex), size, tolerancePx);
+  return [...left.slice(0, -1), ...right];
+}
+
 function offsetPipe(
   points: CanvasPoint[],
   offsetPx: number,
@@ -256,7 +305,8 @@ export function DrawingBoardScreen({ navigation, route }: Props) {
           const points = drawingRef.current;
           drawingRef.current = [];
           setDraftPoints([]);
-          const [vorlauf, ruecklauf] = makePipePair(points, size);
+          const cleaned = simplifyPipePath(points, size, 9 / viewRef.current.scale);
+          const [vorlauf, ruecklauf] = makePipePair(cleaned, size);
           await addCanvasStrokePair(projectId, vorlauf, ruecklauf);
           await load();
         },
@@ -520,7 +570,7 @@ export function DrawingBoardScreen({ navigation, route }: Props) {
       <View style={styles.status}>
         <Text style={styles.statusText}>
           {mode === 'draw'
-            ? 'Rajzolj egyszer — VL + RL együtt készül · 2 ujjal zoom'
+            ? 'Rajzolj egyszer — elengedéskor a vonal és a sarkok kisimulnak'
             : `${openMarkers.length} aktuális X · hosszan nyomd vagy Muff (${openMarkers.length})`}
         </Text>
         <Pressable onPress={() => navigation.navigate('MuffList', { projectId })}>
