@@ -93,8 +93,8 @@ function simplifyPipePath(
   return [...left.slice(0, -1), ...right];
 }
 
-/** A megtartott töréspontokat vízszintes/függőleges tervrajzi szakaszokra igazítja. */
-function orthogonalizePipePath(
+/** A megtartott töréspontokat a legközelebbi 30°-os tervrajzi irányra igazítja. */
+function snapPipePathAngles(
   points: CanvasPoint[],
   size: { width: number; height: number }
 ): CanvasPoint[] {
@@ -105,13 +105,14 @@ function orthogonalizePipePath(
     const target = points[index];
     const dx = (target.x - current.x) * size.width;
     const dy = (target.y - current.y) * size.height;
-    const next =
-      Math.abs(dx) >= Math.abs(dy)
-        ? { x: target.x, y: current.y }
-        : { x: current.x, y: target.y };
-    if (
-      Math.hypot((next.x - current.x) * size.width, (next.y - current.y) * size.height) >= 6
-    ) {
+    const length = Math.hypot(dx, dy);
+    const angleStep = Math.PI / 6;
+    const angle = Math.round(Math.atan2(dy, dx) / angleStep) * angleStep;
+    const next = {
+      x: current.x + (Math.cos(angle) * length) / size.width,
+      y: current.y + (Math.sin(angle) * length) / size.height,
+    };
+    if (length >= 6) {
       result.push(next);
     }
   }
@@ -122,9 +123,21 @@ function orthogonalizePipePath(
     const before = cleaned[cleaned.length - 1];
     const current = result[index];
     const after = result[index + 1];
-    const firstHorizontal = Math.abs(current.y - before.y) < 0.0001;
-    const secondHorizontal = Math.abs(after.y - current.y) < 0.0001;
-    if (firstHorizontal !== secondHorizontal) cleaned.push(current);
+    const firstAngle = Math.round(
+      Math.atan2(
+        (current.y - before.y) * size.height,
+        (current.x - before.x) * size.width
+      ) /
+        (Math.PI / 6)
+    );
+    const secondAngle = Math.round(
+      Math.atan2(
+        (after.y - current.y) * size.height,
+        (after.x - current.x) * size.width
+      ) /
+        (Math.PI / 6)
+    );
+    if (firstAngle !== secondAngle) cleaned.push(current);
   }
   cleaned.push(result[result.length - 1]);
   return cleaned;
@@ -518,7 +531,7 @@ export function DrawingBoardScreen({ navigation, route }: Props) {
           drawingRef.current = [];
           setDraftPoints([]);
           const simplified = simplifyPipePath(points, size, 9 / viewRef.current.scale);
-          const cleaned = orthogonalizePipePath(simplified, size);
+          const cleaned = snapPipePathAngles(simplified, size);
           const rawPair = makePipePair(cleaned, size);
           const [vorlauf, ruecklauf] = snapPipePairToExisting(
             rawPair,
