@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState, Fragment } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import {
   Alert,
   Modal,
@@ -25,7 +25,12 @@ import {
   simplifyPipePath,
   snapPipePathAngles,
 } from '../pipeGeometry';
-import { layoutCanvasMarkers } from '../markerLayout';
+import {
+  formatGroupTitle,
+  groupCanvasMarkers,
+  layoutCanvasMarkers,
+  type MarkerGroupKey,
+} from '../markerLayout';
 import {
   addCanvasMarker,
   addCanvasStrokePair,
@@ -75,6 +80,7 @@ export function DrawingBoardScreen({ navigation, route }: Props) {
   const [projectMenuOpen, setProjectMenuOpen] = useState(false);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [selectedPairId, setSelectedPairId] = useState<string | null>(null);
+  const [selectedGroupKey, setSelectedGroupKey] = useState<MarkerGroupKey | null>(null);
   const [pipeSpacing, setPipeSpacing] = useState(28);
   const [kind, setKind] = useState<PartKind>('muffe');
   const [diameter, setDiameter] = useState('315');
@@ -99,7 +105,10 @@ export function DrawingBoardScreen({ navigation, route }: Props) {
     y: number;
     offsetX: number;
     offsetY: number;
+    moved: boolean;
   } | null>(null);
+  const laidOutRef = useRef<{ id: string; pipeX: number; pipeY: number; groupKey: string }[]>([]);
+  const selectGroupAtRef = useRef<(x: number, y: number, clearIfMiss: boolean) => boolean>(() => false);
   const markerPlacementRef = useRef<(x: number, y: number) => Promise<void>>(async () => {});
   const openConvertRef = useRef<() => void>(() => {});
   const pipeSelectionRef = useRef<(x: number, y: number) => void>(() => {});
@@ -216,6 +225,7 @@ export function DrawingBoardScreen({ navigation, route }: Props) {
               y: event.nativeEvent.locationY,
               offsetX: viewRef.current.offsetX,
               offsetY: viewRef.current.offsetY,
+              moved: false,
             };
             return;
           }
@@ -263,6 +273,12 @@ export function DrawingBoardScreen({ navigation, route }: Props) {
             return;
           }
           if (mode === 'pan' && panDragRef.current) {
+            const movement = Math.hypot(
+              event.nativeEvent.locationX - panDragRef.current.x,
+              event.nativeEvent.locationY - panDragRef.current.y
+            );
+            if (movement > 10) panDragRef.current.moved = true;
+            if (!panDragRef.current.moved) return;
             updateView({
               scale: viewRef.current.scale,
               offsetX:
@@ -304,7 +320,11 @@ export function DrawingBoardScreen({ navigation, route }: Props) {
             return;
           }
           if (mode === 'pan') {
+            const drag = panDragRef.current;
             panDragRef.current = null;
+            if (drag && !drag.moved && Date.now() >= suppressTapUntilRef.current) {
+              selectGroupAtRef.current(drag.x, drag.y, true);
+            }
             return;
           }
           if (mode === 'mark') {
@@ -312,7 +332,9 @@ export function DrawingBoardScreen({ navigation, route }: Props) {
             markerTapRef.current = null;
             if (tap && !tap.moved && Date.now() >= suppressTapUntilRef.current) {
               if (Date.now() - tap.startedAt >= 550) openConvertRef.current();
-              else await markerPlacementRef.current(tap.x, tap.y);
+              else if (!selectGroupAtRef.current(tap.x, tap.y, false)) {
+                await markerPlacementRef.current(tap.x, tap.y);
+              }
             }
             return;
           }
@@ -354,9 +376,31 @@ export function DrawingBoardScreen({ navigation, route }: Props) {
   const partsById = useMemo(() => new Map(parts.map((p) => [p.id, p])), [parts]);
   const openMarkers = markers.filter((m) => !m.partId);
   const laidOutMarkers = useMemo(
-    () => layoutCanvasMarkers(markers, strokes, partsById, size, view),
-    [markers, strokes, partsById, size, view]
+    () => layoutCanvasMarkers(markers, partsById, size, view),
+    [markers, partsById, size, view]
   );
+  laidOutRef.current = laidOutMarkers;
+  const markerGroups = useMemo(
+    () => groupCanvasMarkers(markers, partsById),
+    [markers, partsById]
+  );
+  const selectedGroup = markerGroups.find((group) => group.key === selectedGroupKey) ?? null;
+
+  const selectGroupAt = (screenX: number, screenY: number, clearIfMiss: boolean) => {
+    let best: { key: string; distance: number } | null = null;
+    for (const item of laidOutRef.current) {
+      const distance = Math.hypot(item.pipeX - screenX, item.pipeY - screenY);
+      if (distance > 22) continue;
+      if (!best || distance < best.distance) best = { key: item.groupKey, distance };
+    }
+    if (best) {
+      setSelectedGroupKey(best.key);
+      return true;
+    }
+    if (clearIfMiss) setSelectedGroupKey(null);
+    return false;
+  };
+  selectGroupAtRef.current = selectGroupAt;
 
   const pathFor = (points: CanvasPoint[]) =>
     points
@@ -491,6 +535,7 @@ export function DrawingBoardScreen({ navigation, route }: Props) {
       diameterToMm: needsSecond ? dmTo : null,
     });
     setModalOpen(false);
+    setSelectedGroupKey(`${nextKind}:${dm}:${needsSecond ? dmTo : ''}`);
     await load();
   };
 
@@ -594,6 +639,7 @@ export function DrawingBoardScreen({ navigation, route }: Props) {
         </View>
       ) : null}
 
+      <View style={styles.board}>
       <View
         style={[styles.canvas, webGestureLock]}
         onLayout={onLayout}
@@ -656,52 +702,34 @@ export function DrawingBoardScreen({ navigation, route }: Props) {
                 fill="none"
               />
             ))}
-          {laidOutMarkers
-            .filter((item) => item.caption)
-            .map((item) => (
-              <Line
-                key={`lead-${item.id}`}
-                x1={item.pipeX}
-                y1={item.pipeY}
-                x2={item.labelX + item.width / 2}
-                y2={item.labelY + item.height / 2}
-                stroke={colors.total}
-                strokeWidth={1}
-                opacity={0.4}
-              />
-            ))}
         </Svg>
 
-        {laidOutMarkers.map((item) => (
-          <Fragment key={item.id}>
+        {laidOutMarkers.map((item) => {
+          const selected = selectedGroupKey === item.groupKey;
+          return (
             <View
+              key={item.id}
               pointerEvents="none"
               style={[
-                styles.pipeTick,
-                item.caption ? styles.pipeTickDone : styles.pipeTickOpen,
-                { left: item.pipeX - 5, top: item.pipeY - 5 },
+                styles.xMark,
+                item.open ? styles.xMarkOpen : styles.xMarkDone,
+                selected && styles.xMarkSelected,
+                { left: item.pipeX - 9, top: item.pipeY - 9 },
               ]}
-            />
-            {item.caption ? (
-              <View
-                pointerEvents="none"
+            >
+              <Text
+                selectable={false}
                 style={[
-                  styles.completedMarker,
-                  {
-                    left: item.labelX,
-                    top: item.labelY,
-                    width: item.width,
-                    height: item.height,
-                  },
+                  styles.xText,
+                  item.open ? styles.xTextOpen : styles.xTextDone,
+                  selected && styles.xTextSelected,
                 ]}
               >
-                <Text selectable={false} numberOfLines={1} style={styles.completedCaption}>
-                  {item.caption}
-                </Text>
-              </View>
-            ) : null}
-          </Fragment>
-        ))}
+                ×
+              </Text>
+            </View>
+          );
+        })}
 
         {markers.length === 0 && strokes.length === 0 ? (
           <View pointerEvents="none" style={styles.help}>
@@ -714,14 +742,44 @@ export function DrawingBoardScreen({ navigation, route }: Props) {
         ) : null}
       </View>
 
+      {selectedGroup ? (
+        <View style={styles.legend} pointerEvents="box-none">
+          <View style={styles.legendCard}>
+            <Text style={styles.legendHero}>{formatGroupTitle(selectedGroup)}</Text>
+            <ScrollView style={styles.legendList} nestedScrollEnabled>
+              {markerGroups.map((group) => {
+                const active = group.key === selectedGroup.key;
+                return (
+                  <AnimatedPressable
+                    key={group.key}
+                    style={[styles.legendRow, active && styles.legendRowActive]}
+                    onPress={() => setSelectedGroupKey(active ? null : group.key)}
+                  >
+                    <Text
+                      style={[styles.legendRowText, active && styles.legendRowTextActive]}
+                      numberOfLines={2}
+                    >
+                      {formatGroupTitle(group)}
+                    </Text>
+                  </AnimatedPressable>
+                );
+              })}
+            </ScrollView>
+          </View>
+        </View>
+      ) : null}
+      </View>
+
       <View style={styles.status}>
         <Text style={styles.statusText}>
-          {mode === 'pan'
-            ? 'Mozgatás mód · egy ujjal húzd a papírt'
+          {selectedGroup
+            ? formatGroupTitle(selectedGroup)
+            : mode === 'pan'
+              ? 'Mozgatás · koppints egy X-re: oldalt megjelenik, miből mennyi'
             : mode === 'draw'
               ? 'Rajz mód · a lap rögzítve marad az ujjad alatt'
             : mode === 'mark'
-              ? `${openMarkers.length} aktuális X · hosszan nyomd vagy Muff (${openMarkers.length})`
+              ? `${openMarkers.length} aktuális X · koppints X-re vagy tegyél újat`
               : selectedPairId
                 ? 'Cső kijelölve · állítsd a VL–RL távolságot'
                 : 'Cső mód · koppints egy vonalpárra'}
@@ -927,6 +985,7 @@ const styles = StyleSheet.create({
   spacingButtonText: { color: '#fff', fontSize: 22, fontWeight: '900' },
   spacingValue: { minWidth: 50, textAlign: 'center', color: colors.ink, fontWeight: '800' },
   spacingDone: { color: colors.total, fontWeight: '800', padding: 8 },
+  board: { flex: 1, position: 'relative' },
   canvas: {
     flex: 1,
     backgroundColor: '#fff',
@@ -946,33 +1005,61 @@ const styles = StyleSheet.create({
   },
   helpTitle: { fontSize: 21, fontWeight: '800', color: '#8b989e', marginBottom: 8 },
   helpText: { color: '#9ba6ab', textAlign: 'center', fontSize: 15, lineHeight: 21 },
-  marker: {
+  xMark: {
     position: 'absolute',
+    width: 18,
+    height: 18,
+    borderRadius: 4,
     alignItems: 'center',
     justifyContent: 'center',
-    overflow: 'hidden',
   },
-  pipeTick: {
-    position: 'absolute',
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    borderWidth: 1.5,
-    borderColor: '#fff',
+  xMarkOpen: { backgroundColor: 'rgba(255,255,255,0.9)' },
+  xMarkDone: { backgroundColor: 'rgba(255,255,255,0.55)' },
+  xMarkSelected: {
+    backgroundColor: '#fff',
+    borderWidth: 2,
+    borderColor: colors.accent,
   },
-  pipeTickOpen: { backgroundColor: colors.danger },
-  pipeTickDone: { backgroundColor: colors.total },
-  completedMarker: {
+  xText: { fontSize: 16, fontWeight: '900', lineHeight: 17 },
+  xTextOpen: { color: colors.danger },
+  xTextDone: { color: colors.total },
+  xTextSelected: { color: colors.accent },
+  legend: {
     position: 'absolute',
-    borderRadius: 5,
+    right: 10,
+    top: 12,
+    bottom: 12,
+    width: 168,
+    zIndex: 6,
+    justifyContent: 'flex-start',
+  },
+  legendCard: {
+    backgroundColor: 'rgba(255,255,255,0.96)',
+    borderRadius: radius.md,
     borderWidth: 1,
-    borderColor: colors.total,
-    backgroundColor: 'rgba(234,248,240,0.94)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 3,
+    borderColor: colors.border,
+    padding: 10,
+    maxHeight: '100%',
+    ...shadow.bar,
   },
-  completedCaption: { color: colors.ink, fontSize: 10, fontWeight: '800', lineHeight: 12 },
+  legendHero: {
+    color: colors.ink,
+    fontWeight: '900',
+    fontSize: 16,
+    lineHeight: 20,
+    marginBottom: 8,
+  },
+  legendList: { maxHeight: 220 },
+  legendRow: {
+    paddingVertical: 8,
+    paddingHorizontal: 8,
+    borderRadius: radius.sm,
+    marginBottom: 4,
+    backgroundColor: colors.chip,
+  },
+  legendRowActive: { backgroundColor: colors.accent },
+  legendRowText: { color: colors.ink, fontWeight: '800', fontSize: 12 },
+  legendRowTextActive: { color: '#fff' },
   status: {
     minHeight: 48,
     paddingHorizontal: spacing.md,
