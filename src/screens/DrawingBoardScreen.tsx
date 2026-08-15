@@ -39,7 +39,7 @@ import {
 import { colors, spacing } from '../theme';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'DrawingBoard'>;
-type Mode = 'draw' | 'mark' | 'select';
+type Mode = 'draw' | 'mark';
 type ViewTransform = { scale: number; offsetX: number; offsetY: number };
 
 function offsetPipe(
@@ -73,7 +73,6 @@ export function DrawingBoardScreen({ navigation, route }: Props) {
   const [markers, setMarkers] = useState<CanvasMarker[]>([]);
   const [strokes, setStrokes] = useState<CanvasStroke[]>([]);
   const [parts, setParts] = useState<PartEntry[]>([]);
-  const [selected, setSelected] = useState<Set<string>>(new Set());
   const [draftPoints, setDraftPoints] = useState<CanvasPoint[]>([]);
   const [size, setSize] = useState({ width: 1, height: 1 });
   const [modalOpen, setModalOpen] = useState(false);
@@ -84,8 +83,14 @@ export function DrawingBoardScreen({ navigation, route }: Props) {
   const [diameterTo, setDiameterTo] = useState('250');
   const [view, setView] = useState<ViewTransform>({ scale: 1, offsetX: 0, offsetY: 0 });
   const drawingRef = useRef<CanvasPoint[]>([]);
-  const markerTapRef = useRef<{ x: number; y: number; moved: boolean } | null>(null);
+  const markerTapRef = useRef<{
+    x: number;
+    y: number;
+    moved: boolean;
+    startedAt: number;
+  } | null>(null);
   const markerPlacementRef = useRef<(x: number, y: number) => Promise<void>>(async () => {});
+  const openConvertRef = useRef<() => void>(() => {});
   const suppressTapUntilRef = useRef(0);
   const lastMarkerAtRef = useRef(0);
   const viewRef = useRef(view);
@@ -185,6 +190,7 @@ export function DrawingBoardScreen({ navigation, route }: Props) {
               x: event.nativeEvent.locationX,
               y: event.nativeEvent.locationY,
               moved: false,
+              startedAt: Date.now(),
             };
             return;
           }
@@ -242,7 +248,8 @@ export function DrawingBoardScreen({ navigation, route }: Props) {
             const tap = markerTapRef.current;
             markerTapRef.current = null;
             if (tap && !tap.moved && Date.now() >= suppressTapUntilRef.current) {
-              await markerPlacementRef.current(tap.x, tap.y);
+              if (Date.now() - tap.startedAt >= 550) openConvertRef.current();
+              else await markerPlacementRef.current(tap.x, tap.y);
             }
             return;
           }
@@ -325,24 +332,14 @@ export function DrawingBoardScreen({ navigation, route }: Props) {
   };
   markerPlacementRef.current = placeMarkerAt;
 
-  const toggleMarker = (marker: CanvasMarker) => {
-    if (mode !== 'select' || marker.partId || Date.now() < suppressTapUntilRef.current) return;
-    setSelected((current) => {
-      const next = new Set(current);
-      if (next.has(marker.id)) next.delete(marker.id);
-      else next.add(marker.id);
-      return next;
-    });
-  };
-
   const openConvert = () => {
-    if (mode !== 'select') return;
-    if (selected.size === 0) {
-      Alert.alert('Nincs kijelölés', 'Koppints egyenként az átalakítandó X-ekre.');
+    if (openMarkers.length === 0) {
+      Alert.alert('Nincs új X', 'Először tegyél le X-eket az aktuális muff-csoporthoz.');
       return;
     }
     setModalOpen(true);
   };
+  openConvertRef.current = openConvert;
 
   const saveConversion = async () => {
     const dm = Number(diameter);
@@ -354,19 +351,17 @@ export function DrawingBoardScreen({ navigation, route }: Props) {
     }
     await convertMarkersToParts({
       projectId,
-      markerIds: [...selected],
+      markerIds: openMarkers.map((marker) => marker.id),
       kind,
       diameterMm: dm,
       diameterToMm: needsSecond ? dmTo : null,
     });
-    setSelected(new Set());
     setModalOpen(false);
     await load();
   };
 
   const changeMode = (next: Mode) => {
     setMode(next);
-    if (next !== 'select') setSelected(new Set());
   };
 
   const onLayout = (event: LayoutChangeEvent) => {
@@ -399,11 +394,14 @@ export function DrawingBoardScreen({ navigation, route }: Props) {
       <View style={styles.toolbar}>
         <ModeButton active={mode === 'draw'} label="✎ Rajz" onPress={() => changeMode('draw')} />
         <ModeButton active={mode === 'mark'} label="＋ X" onPress={() => changeMode('mark')} />
-        <ModeButton
-          active={mode === 'select'}
-          label={`Kijelöl${selected.size ? ` (${selected.size})` : ''}`}
-          onPress={() => changeMode('select')}
-        />
+        <Pressable
+          style={[styles.toolButton, openMarkers.length > 0 && styles.batchButton]}
+          onPress={openConvert}
+        >
+          <Text style={[styles.toolText, openMarkers.length > 0 && styles.batchButtonText]}>
+            Muff ({openMarkers.length})
+          </Text>
+        </Pressable>
         <Pressable
           style={styles.toolButton}
           onPress={() => updateView({ scale: 1, offsetX: 0, offsetY: 0 })}
@@ -414,7 +412,6 @@ export function DrawingBoardScreen({ navigation, route }: Props) {
           style={styles.toolButton}
           onPress={async () => {
             await undoCanvasAction(projectId);
-            setSelected(new Set());
             await load();
           }}
         >
@@ -427,12 +424,6 @@ export function DrawingBoardScreen({ navigation, route }: Props) {
         onLayout={onLayout}
         {...panResponder.panHandlers}
       >
-        <Pressable
-          style={StyleSheet.absoluteFill}
-          onLongPress={openConvert}
-          delayLongPress={550}
-          disabled={mode !== 'select'}
-        />
         <Svg width="100%" height="100%" style={StyleSheet.absoluteFill} pointerEvents="none">
           {gridX.map((x, index) => (
             <Line
@@ -484,9 +475,8 @@ export function DrawingBoardScreen({ navigation, route }: Props) {
 
         {markers.map((marker) => {
           const part = marker.partId ? partsById.get(marker.partId) : null;
-          const isSelected = selected.has(marker.id);
           return (
-            <Pressable
+            <View
               key={marker.id}
               style={[
                 styles.marker,
@@ -495,13 +485,8 @@ export function DrawingBoardScreen({ navigation, route }: Props) {
                   top: marker.y * size.height * view.scale + view.offsetY - (part ? 17 : 14),
                 },
                 part && styles.completedMarker,
-                isSelected && styles.selectedMarker,
-                { transform: [{ scale: symbolScale * (isSelected ? 1.1 : 1) }] },
+                { transform: [{ scale: symbolScale }] },
               ]}
-              onPress={(event) => {
-                event.stopPropagation();
-                toggleMarker(marker);
-              }}
             >
               {part ? (
                 <>
@@ -513,7 +498,7 @@ export function DrawingBoardScreen({ navigation, route }: Props) {
               ) : (
                 <Text selectable={false} style={styles.xText}>×</Text>
               )}
-            </Pressable>
+            </View>
           );
         })}
 
@@ -532,11 +517,7 @@ export function DrawingBoardScreen({ navigation, route }: Props) {
         <Text style={styles.statusText}>
           {mode === 'draw'
             ? 'Rajzolj egyszer — VL + RL együtt készül · 2 ujjal zoom'
-            : mode === 'mark'
-              ? 'X mód — rövid koppintás a vonalnál (húzás nem rak le X-et)'
-              : selected.size
-                ? `${selected.size} X kijelölve — nyomd hosszan a rajzlapot`
-                : 'Koppints egyenként az X-ekre · 2 ujjal nagyítás'}
+            : `${openMarkers.length} aktuális X · hosszan nyomd vagy Muff (${openMarkers.length})`}
         </Text>
         <Pressable onPress={() => navigation.navigate('MuffList', { projectId })}>
           <Text style={styles.listLink}>Lista ({parts.length})</Text>
@@ -605,8 +586,10 @@ export function DrawingBoardScreen({ navigation, route }: Props) {
       <Modal visible={modalOpen} transparent animationType="slide" onRequestClose={() => setModalOpen(false)}>
         <Pressable style={styles.backdrop} onPress={() => setModalOpen(false)}>
           <Pressable style={styles.sheet} onPress={(event) => event.stopPropagation()}>
-            <Text style={styles.sheetTitle}>{selected.size} X átalakítása</Text>
-            <Text style={styles.sheetHint}>Mindegyik kijelölt X egy darab tétel lesz.</Text>
+            <Text style={styles.sheetTitle}>{openMarkers.length} aktuális X átalakítása</Text>
+            <Text style={styles.sheetHint}>
+              Mindegyik jelenlegi X egy darab tétel lesz. Az ezután lerakott X-ek új csoportot alkotnak.
+            </Text>
 
             <View style={styles.chips}>
               {PART_KINDS.map((item) => (
@@ -656,7 +639,7 @@ export function DrawingBoardScreen({ navigation, route }: Props) {
             ) : null}
 
             <Pressable style={styles.saveButton} onPress={saveConversion}>
-              <Text style={styles.saveText}>Átalakítás ({selected.size} db)</Text>
+              <Text style={styles.saveText}>Átalakítás ({openMarkers.length} db)</Text>
             </Pressable>
           </Pressable>
         </Pressable>
@@ -722,6 +705,8 @@ const styles = StyleSheet.create({
   toolButtonActive: { backgroundColor: colors.accent },
   toolText: { color: colors.ink, fontWeight: '700' },
   toolTextActive: { color: '#fff' },
+  batchButton: { backgroundColor: colors.total },
+  batchButtonText: { color: '#fff' },
   canvas: {
     flex: 1,
     backgroundColor: '#fff',
@@ -754,10 +739,6 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.15,
     shadowRadius: 3,
     elevation: 3,
-  },
-  selectedMarker: {
-    borderColor: colors.accent,
-    backgroundColor: '#fff3e6',
   },
   completedMarker: {
     width: 52,

@@ -22,9 +22,9 @@ A szerelő telefonon gyorsan felírja és módosítja:
 3. Egy rajzmozdulat automatikusan **két párhuzamos vonalat** készít: **VL / Vorlauf** (meleg előremenő, folytonos) + **RL / Rücklauf** (visszatérő, szaggatott).
 4. **Rajz** az alapmód; az **X módot külön aktiválni kell**.
 5. X módban csak rövid, legfeljebb 10 px-t mozduló koppintás rak le X-et; húzás/pinch után nem. Az X a legközelebbi megrajzolt VL/RL vonalra illeszkedik.
-6. Kijelöl módban az X-ek egyenként választhatók; pinch után 400 ms-ig nem történhet véletlen kijelölés.
-7. Hosszú nyomás a rajzlapon → közös típus + DM adatlap.
-8. Minden kijelölt X külön 1 db PartEntry lesz; az összesítő csoportosítja.
+6. Minden még át nem alakított X automatikusan az **aktuális csoport** része; nincs külön kijelölési mód.
+7. Hosszú nyomás X módban vagy a `Muff (N)` gomb → közös típus + DM adatlap.
+8. Mentéskor az összes aktuális X külön 1 db PartEntry lesz. A később lerakott X-ek új csoportot alkotnak.
 9. Drótmérés ezen az adatlapon nincs.
 
 ## Lista UX szabályok (másodlagos nézet)

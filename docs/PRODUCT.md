@@ -51,9 +51,9 @@ A projekt főképernyője egy **teljes telefonkijelzős rajzlap**:
 
 1. **Rajz mód** (alapértelmezett): egy ujjmozdulat egyszerre készíti a két párhuzamos csővonalat — folytonos **VL / Vorlauf** (meleg előremenő) + szaggatott **RL / Rücklauf** (visszatérő).
 2. **X mód** (külön aktiválandó): minden koppintás a legközelebbi csővonalra illeszt egy nyitott muffot jelző X-et.
-3. **Kijelöl mód**: az X-ek egyenként koppintva kijelölhetők.
-4. Ha van kijelölés, a rajzlap hosszú nyomása megnyitja a Muffe / Reduzir / Abzweig adatlapot.
-5. Mentéskor minden kijelölt X egy darab megadott tétellé alakul; a napi összesítő automatikusan számolja.
+3. Az összes aktuális, még át nem alakított X egy automatikus csoport; nincs külön kijelölés.
+4. Hosszú nyomás vagy a `Muff (N)` gomb megnyitja a Muffe / Reduzir / Abzweig adatlapot.
+5. Mentéskor minden aktuális X egy darab megadott tétellé alakul. A később lerakott X-ek új csoportot alkotnak.
 
 A drótmérés nem része ennek a gyors adatlapnak.
 
