@@ -15,6 +15,8 @@ import { AnimatedPressable } from '../components/AnimatedPressable';
 import { DimensionPicker } from '../components/DimensionPicker';
 import { FadeIn } from '../components/FadeIn';
 import { KindChips } from '../components/KindChips';
+import { PopIn } from '../components/PopIn';
+import { PulseValue } from '../components/PulseValue';
 import type { RootStackParamList } from '../navigation';
 import {
   addPart,
@@ -191,7 +193,7 @@ export function MuffListScreen({ navigation, route }: Props) {
           </Text>
         </View>
         <View style={styles.summaryRight}>
-          <Text style={styles.summaryCount}>{totals.total}</Text>
+          <PulseValue value={totals.total} style={styles.summaryCount} />
           <Text style={styles.summaryUnit}>db összesen</Text>
         </View>
       </View>
@@ -215,7 +217,7 @@ export function MuffListScreen({ navigation, route }: Props) {
           </FadeIn>
         }
         renderItem={({ item }) => (
-          <View style={styles.row}>
+          <PopIn style={styles.row}>
             <Pressable style={styles.rowMain} onPress={() => openEdit(item)} onLongPress={() => confirmDelete(item)}>
               <Text style={styles.rowKind}>{partKindLabel(item.kind)}</Text>
               <Text style={styles.rowDm}>{formatPartDims(item)}</Text>
@@ -225,13 +227,13 @@ export function MuffListScreen({ navigation, route }: Props) {
                 <Text style={styles.stepBtnText}>−</Text>
               </AnimatedPressable>
               <Pressable onPress={() => openEdit(item)}>
-                <Text style={styles.rowCount}>{item.count}</Text>
+                <PulseValue value={item.count} style={styles.rowCount} />
               </Pressable>
               <AnimatedPressable style={styles.stepBtn} onPress={() => void bump(item, 1)}>
                 <Text style={styles.stepBtnText}>+</Text>
               </AnimatedPressable>
             </View>
-          </View>
+          </PopIn>
         )}
       />
 
@@ -293,7 +295,7 @@ export function MuffListScreen({ navigation, route }: Props) {
               <AnimatedPressable style={styles.stepBtn} onPress={() => setCount((c) => Math.max(1, c - 1))}>
                 <Text style={styles.stepBtnText}>−</Text>
               </AnimatedPressable>
-              <Text style={styles.countValue}>{count}</Text>
+              <PulseValue value={count} style={styles.countValue} />
               <AnimatedPressable style={styles.stepBtn} onPress={() => setCount((c) => c + 1)}>
                 <Text style={styles.stepBtnText}>+</Text>
               </AnimatedPressable>

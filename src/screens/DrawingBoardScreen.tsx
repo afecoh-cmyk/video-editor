@@ -18,6 +18,8 @@ import { AnimatedPressable } from '../components/AnimatedPressable';
 import { DimensionPicker } from '../components/DimensionPicker';
 import { InstallButton } from '../components/InstallButton';
 import { KindChips } from '../components/KindChips';
+import { PopIn } from '../components/PopIn';
+import { PulseValue } from '../components/PulseValue';
 import type { RootStackParamList } from '../navigation';
 import {
   makePipePair,
@@ -854,8 +856,8 @@ export function DrawingBoardScreen({ navigation, route }: Props) {
           if (pipeDisplay.hint === 'merge' && movingMarkerIds.has(item.id)) return null;
           const shift = movingMarkerIds.has(item.id) ? markerDragShift : { x: 0, y: 0 };
           return (
-            <View
-              key={item.id}
+            <PopIn
+              key={`${item.id}-${item.open ? 'open' : 'done'}`}
               pointerEvents="none"
               style={[
                 styles.xMark,
@@ -874,7 +876,7 @@ export function DrawingBoardScreen({ navigation, route }: Props) {
               >
                 ×
               </Text>
-            </View>
+            </PopIn>
           );
         })}
 
@@ -905,9 +907,12 @@ export function DrawingBoardScreen({ navigation, route }: Props) {
                 style={[styles.tallyChip, active && styles.tallyChipActive]}
                 onPress={() => setSelectedGroupKey(active ? null : group.key)}
               >
-                <Text style={[styles.tallyChipText, active && styles.tallyChipTextActive]}>
+                <PulseValue
+                  value={group.count}
+                  style={[styles.tallyChipText, active && styles.tallyChipTextActive]}
+                >
                   {formatGroupChip(group)}
-                </Text>
+                </PulseValue>
               </AnimatedPressable>
             );
           })}
