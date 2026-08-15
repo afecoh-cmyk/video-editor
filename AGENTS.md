@@ -81,4 +81,12 @@ Ha elromlik valami:
 - Linket csak akkor adj, ha tényleg működik
 - Kérdezz, ha a terepi fogalom (muffe / reduzir / abzweig / DM) nem egyértelmű
 
+## Kötelező dev teszt és main jóváhagyás
+
+1. Minden felhasználói felületet érintő változtatás után indíts / frissíts egy működő dev preview-t.
+2. A felhasználónak mindig küldd el a ténylegesen ellenőrzött **dev tesztlinket**.
+3. A változtatás először külön fejlesztői ágon és PR-ban marad.
+4. **Soha ne merge-eld vagy pushold a változtatást a `main` ágra a felhasználó egyértelmű engedélye nélkül.**
+5. A `main`-re csak akkor kerülhet, ha a felhasználó a dev linken kipróbálta és kimondottan jóváhagyta (pl. „mehet mainra”, „merge”).
+
 Légy gyakorlatias. Légy megbízható. A bajsztelep a mérce.
