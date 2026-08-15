@@ -105,7 +105,10 @@ export function DrawingBoardScreen({ navigation, route }: Props) {
     y: number;
     offsetX: number;
     offsetY: number;
+    moved: boolean;
   } | null>(null);
+  const laidOutRef = useRef<{ pipeX: number; pipeY: number; groupKey: string }[]>([]);
+  const selectGroupAtRef = useRef<(x: number, y: number, clearIfMiss: boolean) => boolean>(() => false);
   const markerPlacementRef = useRef<(x: number, y: number) => Promise<void>>(async () => {});
   const openConvertRef = useRef<() => void>(() => {});
   const pipeSelectionRef = useRef<(x: number, y: number) => void>(() => {});
@@ -222,6 +225,7 @@ export function DrawingBoardScreen({ navigation, route }: Props) {
               y: event.nativeEvent.locationY,
               offsetX: viewRef.current.offsetX,
               offsetY: viewRef.current.offsetY,
+              moved: false,
             };
             return;
           }
@@ -269,6 +273,12 @@ export function DrawingBoardScreen({ navigation, route }: Props) {
             return;
           }
           if (mode === 'pan' && panDragRef.current) {
+            const movement = Math.hypot(
+              event.nativeEvent.locationX - panDragRef.current.x,
+              event.nativeEvent.locationY - panDragRef.current.y
+            );
+            if (movement > 10) panDragRef.current.moved = true;
+            if (!panDragRef.current.moved) return;
             updateView({
               scale: viewRef.current.scale,
               offsetX:
@@ -310,7 +320,11 @@ export function DrawingBoardScreen({ navigation, route }: Props) {
             return;
           }
           if (mode === 'pan') {
+            const drag = panDragRef.current;
             panDragRef.current = null;
+            if (drag && !drag.moved && Date.now() >= suppressTapUntilRef.current) {
+              selectGroupAtRef.current(drag.x, drag.y, true);
+            }
             return;
           }
           if (mode === 'mark') {
@@ -318,7 +332,9 @@ export function DrawingBoardScreen({ navigation, route }: Props) {
             markerTapRef.current = null;
             if (tap && !tap.moved && Date.now() >= suppressTapUntilRef.current) {
               if (Date.now() - tap.startedAt >= 550) openConvertRef.current();
-              else await markerPlacementRef.current(tap.x, tap.y);
+              else if (!selectGroupAtRef.current(tap.x, tap.y, false)) {
+                await markerPlacementRef.current(tap.x, tap.y);
+              }
             }
             return;
           }
@@ -367,6 +383,24 @@ export function DrawingBoardScreen({ navigation, route }: Props) {
     () => layoutCanvasMarkers(markers, partsById, size, view),
     [markers, partsById, size, view]
   );
+  laidOutRef.current = laidOutMarkers;
+  const selectedGroup = markerGroups.find((group) => group.key === selectedGroupKey) ?? null;
+
+  const selectGroupAt = (screenX: number, screenY: number, clearIfMiss: boolean) => {
+    let best: { key: string; distance: number } | null = null;
+    for (const item of laidOutRef.current) {
+      const distance = Math.hypot(item.pipeX - screenX, item.pipeY - screenY);
+      if (distance > 22) continue;
+      if (!best || distance < best.distance) best = { key: item.groupKey, distance };
+    }
+    if (best) {
+      setSelectedGroupKey(best.key);
+      return true;
+    }
+    if (clearIfMiss) setSelectedGroupKey(null);
+    return false;
+  };
+  selectGroupAtRef.current = selectGroupAt;
 
   const pathFor = (points: CanvasPoint[]) =>
     points
@@ -735,12 +769,14 @@ export function DrawingBoardScreen({ navigation, route }: Props) {
 
       <View style={styles.status}>
         <Text style={styles.statusText}>
-          {mode === 'pan'
-            ? 'Mozgatás mód · egy ujjal húzd a papírt'
+          {selectedGroup
+            ? formatGroupChip(selectedGroup)
+            : mode === 'pan'
+              ? 'Mozgatás · koppints egy X-re, alul látod a darabszámot'
             : mode === 'draw'
               ? 'Rajz mód · a lap rögzítve marad az ujjad alatt'
             : mode === 'mark'
-              ? `${openMarkers.length} aktuális X · hosszan nyomd vagy Muff (${openMarkers.length})`
+              ? `${openMarkers.length} aktuális X · koppints X-re vagy tegyél újat`
               : selectedPairId
                 ? 'Cső kijelölve · állítsd a VL–RL távolságot'
                 : 'Cső mód · koppints egy vonalpárra'}
