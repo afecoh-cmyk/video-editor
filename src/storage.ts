@@ -209,8 +209,8 @@ export async function addCanvasMarker(
   const marker: CanvasMarker = {
     id: await newId(),
     projectId,
-    x: Math.max(0, Math.min(1, point.x)),
-    y: Math.max(0, Math.min(1, point.y)),
+    x: point.x,
+    y: point.y,
     partId: null,
     createdAt: new Date().toISOString(),
   };
@@ -229,10 +229,7 @@ export async function addCanvasStroke(
   const stroke: CanvasStroke = {
     id: await newId(),
     projectId,
-    points: points.map((p) => ({
-      x: Math.max(0, Math.min(1, p.x)),
-      y: Math.max(0, Math.min(1, p.y)),
-    })),
+    points,
     createdAt: new Date().toISOString(),
   };
   data.canvasStrokes.push(stroke);

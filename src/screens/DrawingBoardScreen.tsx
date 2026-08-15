@@ -13,7 +13,7 @@ import {
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import Svg, { Path } from 'react-native-svg';
+import Svg, { Line, Path } from 'react-native-svg';
 import type { RootStackParamList } from '../navigation';
 import {
   addCanvasMarker,
@@ -39,6 +39,7 @@ import { colors, spacing } from '../theme';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'DrawingBoard'>;
 type Mode = 'draw' | 'mark' | 'select';
+type ViewTransform = { scale: number; offsetX: number; offsetY: number };
 
 export function DrawingBoardScreen({ navigation, route }: Props) {
   const { projectId } = route.params;
@@ -53,7 +54,14 @@ export function DrawingBoardScreen({ navigation, route }: Props) {
   const [kind, setKind] = useState<PartKind>('muffe');
   const [diameter, setDiameter] = useState('315');
   const [diameterTo, setDiameterTo] = useState('250');
+  const [view, setView] = useState<ViewTransform>({ scale: 1, offsetX: 0, offsetY: 0 });
   const drawingRef = useRef<CanvasPoint[]>([]);
+  const viewRef = useRef(view);
+  const pinchRef = useRef<{
+    distance: number;
+    worldX: number;
+    worldY: number;
+  } | null>(null);
 
   const load = useCallback(async () => {
     const [project, canvas, projectParts] = await Promise.all([
@@ -78,32 +86,93 @@ export function DrawingBoardScreen({ navigation, route }: Props) {
     }, [load])
   );
 
-  const normalize = useCallback(
+  const screenToWorld = useCallback(
     (x: number, y: number): CanvasPoint => ({
-      x: Math.max(0, Math.min(1, x / size.width)),
-      y: Math.max(0, Math.min(1, y / size.height)),
+      x: (x - viewRef.current.offsetX) / (viewRef.current.scale * size.width),
+      y: (y - viewRef.current.offsetY) / (viewRef.current.scale * size.height),
     }),
     [size]
+  );
+
+  const updateView = useCallback((next: ViewTransform) => {
+    viewRef.current = next;
+    setView(next);
+  }, []);
+
+  const beginPinch = useCallback(
+    (touches: readonly { locationX: number; locationY: number }[]) => {
+      if (touches.length < 2) return;
+      const [a, b] = touches;
+      const midX = (a.locationX + b.locationX) / 2;
+      const midY = (a.locationY + b.locationY) / 2;
+      pinchRef.current = {
+        distance: Math.hypot(b.locationX - a.locationX, b.locationY - a.locationY),
+        worldX: (midX - viewRef.current.offsetX) / viewRef.current.scale,
+        worldY: (midY - viewRef.current.offsetY) / viewRef.current.scale,
+      };
+      drawingRef.current = [];
+      setDraftPoints([]);
+    },
+    []
   );
 
   const panResponder = useMemo(
     () =>
       PanResponder.create({
-        onStartShouldSetPanResponder: () => mode === 'draw',
-        onMoveShouldSetPanResponder: () => mode === 'draw',
+        onStartShouldSetPanResponder: (event) =>
+          event.nativeEvent.touches.length >= 2 || mode === 'draw',
+        onMoveShouldSetPanResponder: (event) =>
+          event.nativeEvent.touches.length >= 2 || mode === 'draw',
         onPanResponderGrant: (event) => {
+          if (event.nativeEvent.touches.length >= 2) {
+            beginPinch(event.nativeEvent.touches);
+            return;
+          }
+          if (mode !== 'draw') return;
           const { locationX, locationY } = event.nativeEvent;
-          const first = normalize(locationX, locationY);
+          const first = screenToWorld(locationX, locationY);
           drawingRef.current = [first];
           setDraftPoints([first]);
         },
         onPanResponderMove: (event) => {
+          const touches = event.nativeEvent.touches;
+          if (touches.length >= 2) {
+            if (!pinchRef.current) beginPinch(touches);
+            const pinch = pinchRef.current;
+            if (!pinch) return;
+            const [a, b] = touches;
+            const midX = (a.locationX + b.locationX) / 2;
+            const midY = (a.locationY + b.locationY) / 2;
+            const distance = Math.hypot(b.locationX - a.locationX, b.locationY - a.locationY);
+            const scale = Math.max(
+              0.6,
+              Math.min(5, viewRef.current.scale * (distance / Math.max(1, pinch.distance)))
+            );
+            updateView({
+              scale,
+              offsetX: midX - pinch.worldX * scale,
+              offsetY: midY - pinch.worldY * scale,
+            });
+            pinchRef.current = {
+              distance,
+              worldX: (midX - viewRef.current.offsetX) / viewRef.current.scale,
+              worldY: (midY - viewRef.current.offsetY) / viewRef.current.scale,
+            };
+            return;
+          }
+          if (pinchRef.current || mode !== 'draw') return;
           const { locationX, locationY } = event.nativeEvent;
-          const next = normalize(locationX, locationY);
+          const next = screenToWorld(locationX, locationY);
           drawingRef.current = [...drawingRef.current, next];
           setDraftPoints(drawingRef.current);
         },
         onPanResponderRelease: async () => {
+          if (pinchRef.current) {
+            pinchRef.current = null;
+            drawingRef.current = [];
+            setDraftPoints([]);
+            return;
+          }
           const points = drawingRef.current;
           drawingRef.current = [];
           setDraftPoints([]);
@@ -111,11 +180,12 @@ export function DrawingBoardScreen({ navigation, route }: Props) {
           await load();
         },
         onPanResponderTerminate: () => {
+          pinchRef.current = null;
           drawingRef.current = [];
           setDraftPoints([]);
         },
       }),
-    [load, mode, normalize, projectId]
+    [beginPinch, load, mode, projectId, screenToWorld, updateView]
   );
 
   const partsById = useMemo(() => new Map(parts.map((p) => [p.id, p])), [parts]);
@@ -124,8 +194,8 @@ export function DrawingBoardScreen({ navigation, route }: Props) {
   const pathFor = (points: CanvasPoint[]) =>
     points
       .map((point, index) => {
-        const x = Math.round(point.x * size.width);
-        const y = Math.round(point.y * size.height);
+        const x = Math.round(point.x * size.width * view.scale + view.offsetX);
+        const y = Math.round(point.y * size.height * view.scale + view.offsetY);
         return `${index === 0 ? 'M' : 'L'} ${x} ${y}`;
       })
       .join(' ');
@@ -133,7 +203,7 @@ export function DrawingBoardScreen({ navigation, route }: Props) {
   const onCanvasPress = async (event: GestureResponderEvent) => {
     if (mode !== 'mark') return;
     const { locationX, locationY } = event.nativeEvent;
-    await addCanvasMarker(projectId, normalize(locationX, locationY));
+    await addCanvasMarker(projectId, screenToWorld(locationX, locationY));
     await load();
   };
 
@@ -186,6 +256,18 @@ export function DrawingBoardScreen({ navigation, route }: Props) {
     if (width > 0 && height > 0) setSize({ width, height });
   };
 
+  const gridSpacing = 28 * view.scale;
+  const gridStartX = ((view.offsetX % gridSpacing) + gridSpacing) % gridSpacing;
+  const gridStartY = ((view.offsetY % gridSpacing) + gridSpacing) % gridSpacing;
+  const gridX = Array.from(
+    { length: Math.ceil(size.width / gridSpacing) + 1 },
+    (_, index) => gridStartX + index * gridSpacing
+  );
+  const gridY = Array.from(
+    { length: Math.ceil(size.height / gridSpacing) + 1 },
+    (_, index) => gridStartY + index * gridSpacing
+  );
+
   return (
     <View style={styles.screen}>
       <View style={styles.toolbar}>
@@ -198,6 +280,12 @@ export function DrawingBoardScreen({ navigation, route }: Props) {
         />
         <Pressable
           style={styles.toolButton}
+          onPress={() => updateView({ scale: 1, offsetX: 0, offsetY: 0 })}
+        >
+          <Text style={styles.toolText}>1:1</Text>
+        </Pressable>
+        <Pressable
+          style={styles.toolButton}
           onPress={async () => {
             await undoCanvasAction(projectId);
             setSelected(new Set());
@@ -208,15 +296,41 @@ export function DrawingBoardScreen({ navigation, route }: Props) {
         </Pressable>
       </View>
 
-      <Pressable
+      <View
         style={styles.canvas}
         onLayout={onLayout}
-        onPress={onCanvasPress}
-        onLongPress={openConvert}
-        delayLongPress={550}
         {...panResponder.panHandlers}
       >
+        <Pressable
+          style={StyleSheet.absoluteFill}
+          onPress={onCanvasPress}
+          onLongPress={openConvert}
+          delayLongPress={550}
+          disabled={mode === 'draw'}
+        />
         <Svg width="100%" height="100%" style={StyleSheet.absoluteFill} pointerEvents="none">
+          {gridX.map((x, index) => (
+            <Line
+              key={`gx-${index}`}
+              x1={x}
+              y1={0}
+              x2={x}
+              y2={size.height}
+              stroke="#dce5e9"
+              strokeWidth={1}
+            />
+          ))}
+          {gridY.map((y, index) => (
+            <Line
+              key={`gy-${index}`}
+              x1={0}
+              y1={y}
+              x2={size.width}
+              y2={y}
+              stroke="#dce5e9"
+              strokeWidth={1}
+            />
+          ))}
           {[...strokes, ...(draftPoints.length ? [{ id: 'draft', points: draftPoints }] : [])].map(
             (stroke) => (
               <Path
@@ -241,8 +355,8 @@ export function DrawingBoardScreen({ navigation, route }: Props) {
               style={[
                 styles.marker,
                 {
-                  left: marker.x * size.width - (part ? 32 : 20),
-                  top: marker.y * size.height - 20,
+                  left: marker.x * size.width * view.scale + view.offsetX - (part ? 32 : 20),
+                  top: marker.y * size.height * view.scale + view.offsetY - 20,
                 },
                 part && styles.completedMarker,
                 isSelected && styles.selectedMarker,
@@ -273,17 +387,17 @@ export function DrawingBoardScreen({ navigation, route }: Props) {
             </Text>
           </View>
         ) : null}
-      </Pressable>
+      </View>
 
       <View style={styles.status}>
         <Text style={styles.statusText}>
           {mode === 'draw'
-            ? 'Rajz mód aktív'
+            ? 'Rajz mód aktív · 2 ujjal nagyítás és mozgatás'
             : mode === 'mark'
-              ? 'X mód aktív — koppints a muffok helyére'
+              ? 'X mód aktív — koppints · 2 ujjal nagyítás és mozgatás'
               : selected.size
                 ? `${selected.size} X kijelölve — nyomd hosszan a rajzlapot`
-                : 'Koppints egyenként az X-ekre'}
+                : 'Koppints egyenként az X-ekre · 2 ujjal nagyítás'}
         </Text>
         <Pressable onPress={() => navigation.navigate('MuffList', { projectId })}>
           <Text style={styles.listLink}>Lista ({parts.length})</Text>

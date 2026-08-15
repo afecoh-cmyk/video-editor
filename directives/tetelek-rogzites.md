@@ -18,12 +18,13 @@ A szerelő telefonon gyorsan felírja és módosítja:
 ## Elsődleges rajzlap-folyamat
 
 1. A projekt megnyitása a teljes képernyős rajzlapra visz.
-2. **Rajz** az alapmód; az **X módot külön aktiválni kell**.
-3. X módban koppintással kerülnek le a nyitott muff-helyek.
-4. Kijelöl módban az X-ek egyenként választhatók.
-5. Hosszú nyomás a rajzlapon → közös típus + DM adatlap.
-6. Minden kijelölt X külön 1 db PartEntry lesz; az összesítő csoportosítja.
-7. Drótmérés ezen az adatlapon nincs.
+2. A rajzlap kockás; **két ujjal nagyítható és mozgatható**, így nagy csőrendszer is elfér.
+3. **Rajz** az alapmód; az **X módot külön aktiválni kell**.
+4. X módban koppintással kerülnek le a nyitott muff-helyek.
+5. Kijelöl módban az X-ek egyenként választhatók.
+6. Hosszú nyomás a rajzlapon → közös típus + DM adatlap.
+7. Minden kijelölt X külön 1 db PartEntry lesz; az összesítő csoportosítja.
+8. Drótmérés ezen az adatlapon nincs.
 
 ## Lista UX szabályok (másodlagos nézet)
 
