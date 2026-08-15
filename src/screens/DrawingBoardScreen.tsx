@@ -5,7 +5,6 @@ import {
   PanResponder,
   Platform,
   Pressable,
-  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -567,21 +566,17 @@ export function DrawingBoardScreen({ navigation, route }: Props) {
 
   return (
     <View style={styles.screen}>
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.toolbar}
-      >
-        <ModeButton active={mode === 'pan'} label="✋ Mozgat" onPress={() => changeMode('pan')} />
-        <ModeButton active={mode === 'draw'} label="✎ Rajz" onPress={() => changeMode('draw')} />
+      <View style={styles.toolbar}>
+        <ModeButton active={mode === 'pan'} label="✋" onPress={() => changeMode('pan')} />
+        <ModeButton active={mode === 'draw'} label="✎" onPress={() => changeMode('draw')} />
         <ModeButton active={mode === 'mark'} label="＋ X" onPress={() => changeMode('mark')} />
-        <ModeButton active={mode === 'pipe'} label="Cső" onPress={() => changeMode('pipe')} />
+        <ModeButton active={mode === 'pipe'} label="║" onPress={() => changeMode('pipe')} />
         <Pressable
           style={[styles.toolButton, openMarkers.length > 0 && styles.batchButton]}
           onPress={openConvert}
         >
           <Text style={[styles.toolText, openMarkers.length > 0 && styles.batchButtonText]}>
-            Muff ({openMarkers.length})
+            M {openMarkers.length}
           </Text>
         </Pressable>
         <Pressable
@@ -599,7 +594,7 @@ export function DrawingBoardScreen({ navigation, route }: Props) {
         >
           <Text style={styles.toolText}>↶</Text>
         </Pressable>
-      </ScrollView>
+      </View>
 
       {mode === 'pipe' && selectedPairId ? (
         <View style={styles.spacingBar}>
@@ -902,22 +897,24 @@ const styles = StyleSheet.create({
   headerMenuText: { color: '#fff', fontSize: 27, fontWeight: '800', lineHeight: 28 },
   toolbar: {
     flexDirection: 'row',
-    gap: 6,
-    padding: 8,
+    justifyContent: 'center',
+    gap: 4,
+    padding: 4,
     backgroundColor: colors.surface,
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
   },
   toolButton: {
-    minHeight: 42,
-    paddingHorizontal: 12,
-    borderRadius: 9,
+    width: 40,
+    height: 34,
+    paddingHorizontal: 3,
+    borderRadius: 7,
     backgroundColor: colors.bg,
     justifyContent: 'center',
     alignItems: 'center',
   },
   toolButtonActive: { backgroundColor: colors.accent },
-  toolText: { color: colors.ink, fontWeight: '700' },
+  toolText: { color: colors.ink, fontWeight: '800', fontSize: 13 },
   toolTextActive: { color: '#fff' },
   batchButton: { backgroundColor: colors.total },
   batchButtonText: { color: '#fff' },
