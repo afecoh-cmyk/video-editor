@@ -36,6 +36,7 @@ import {
   type CanvasStroke,
   type PartEntry,
   type PartKind,
+  type PipeLineKind,
 } from '../types';
 import { colors, spacing } from '../theme';
 
@@ -178,6 +179,84 @@ function makePipePair(
     offsetPipe(points, -spacingPx / 2, size),
     offsetPipe(points, spacingPx / 2, size),
   ];
+}
+
+function snapEndpointToExistingPipe(
+  point: CanvasPoint,
+  neighbor: CanvasPoint,
+  pipeKind: PipeLineKind,
+  strokes: CanvasStroke[],
+  size: { width: number; height: number },
+  maxDistancePx: number
+): CanvasPoint {
+  const branchDx = (neighbor.x - point.x) * size.width;
+  const branchDy = (neighbor.y - point.y) * size.height;
+  const branchLength = Math.hypot(branchDx, branchDy) || 1;
+  let best: { point: CanvasPoint; distance: number } | null = null;
+
+  for (const stroke of strokes.filter(
+    (item) => (item.pipeKind ?? 'vorlauf') === pipeKind
+  )) {
+    for (let index = 1; index < stroke.points.length; index += 1) {
+      const a = stroke.points[index - 1];
+      const b = stroke.points[index];
+      const dx = (b.x - a.x) * size.width;
+      const dy = (b.y - a.y) * size.height;
+      const lengthSquared = dx * dx + dy * dy;
+      if (lengthSquared === 0) continue;
+      const px = (point.x - a.x) * size.width;
+      const py = (point.y - a.y) * size.height;
+      const ratio = Math.max(0, Math.min(1, (px * dx + py * dy) / lengthSquared));
+      const projected = {
+        x: a.x + ratio * (b.x - a.x),
+        y: a.y + ratio * (b.y - a.y),
+      };
+      const distance = Math.hypot(
+        (point.x - projected.x) * size.width,
+        (point.y - projected.y) * size.height
+      );
+      const existingLength = Math.sqrt(lengthSquared);
+      const directionDot = Math.abs(
+        (branchDx * dx + branchDy * dy) / (branchLength * existingLength)
+      );
+      // Abzweig: a csatlakozó ág közel merőleges a meglévő fővezetékre.
+      if (directionDot <= 0.45 && (!best || distance < best.distance)) {
+        best = { point: projected, distance };
+      }
+    }
+  }
+  return best && best.distance <= maxDistancePx ? best.point : point;
+}
+
+function snapPipePairToExisting(
+  pair: [CanvasPoint[], CanvasPoint[]],
+  strokes: CanvasStroke[],
+  size: { width: number; height: number },
+  maxDistancePx: number
+): [CanvasPoint[], CanvasPoint[]] {
+  return pair.map((points, pairIndex) => {
+    if (points.length < 2) return points;
+    const next = [...points];
+    const kind: PipeLineKind = pairIndex === 0 ? 'vorlauf' : 'ruecklauf';
+    next[0] = snapEndpointToExistingPipe(
+      next[0],
+      next[1],
+      kind,
+      strokes,
+      size,
+      maxDistancePx
+    );
+    const last = next.length - 1;
+    next[last] = snapEndpointToExistingPipe(
+      next[last],
+      next[last - 1],
+      kind,
+      strokes,
+      size,
+      maxDistancePx
+    );
+    return next;
+  }) as [CanvasPoint[], CanvasPoint[]];
 }
 
 export function DrawingBoardScreen({ navigation, route }: Props) {
@@ -440,7 +519,13 @@ export function DrawingBoardScreen({ navigation, route }: Props) {
           setDraftPoints([]);
           const simplified = simplifyPipePath(points, size, 9 / viewRef.current.scale);
           const cleaned = orthogonalizePipePath(simplified, size);
-          const [vorlauf, ruecklauf] = makePipePair(cleaned, size);
+          const rawPair = makePipePair(cleaned, size);
+          const [vorlauf, ruecklauf] = snapPipePairToExisting(
+            rawPair,
+            strokes,
+            size,
+            36 / viewRef.current.scale
+          );
           await addCanvasStrokePair(projectId, vorlauf, ruecklauf);
           await load();
         },
@@ -453,7 +538,7 @@ export function DrawingBoardScreen({ navigation, route }: Props) {
           setDraftPoints([]);
         },
       }),
-    [beginPinch, load, mode, projectId, screenToWorld, size, updateView]
+    [beginPinch, load, mode, projectId, screenToWorld, size, strokes, updateView]
   );
 
   const partsById = useMemo(() => new Map(parts.map((p) => [p.id, p])), [parts]);
