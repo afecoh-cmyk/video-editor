@@ -49,8 +49,8 @@ Papír mezők → app mezők:
 
 A projekt főképernyője egy **teljes telefonkijelzős rajzlap**:
 
-1. **Rajz mód** (alapértelmezett): ujjal felrajzolható a cső / szakasz.
-2. **X mód** (külön aktiválandó): minden koppintás egy nyitott muff helyére tesz egy X-et.
+1. **Rajz mód** (alapértelmezett): külön rajzolható a folytonos **VL / Vorlauf** (meleg előremenő) és a szaggatott **RL / Rücklauf** (visszatérő) csővonal.
+2. **X mód** (külön aktiválandó): minden koppintás a legközelebbi csővonalra illeszt egy nyitott muffot jelző X-et.
 3. **Kijelöl mód**: az X-ek egyenként koppintva kijelölhetők.
 4. Ha van kijelölés, a rajzlap hosszú nyomása megnyitja a Muffe / Reduzir / Abzweig adatlapot.
 5. Mentéskor minden kijelölt X egy darab megadott tétellé alakul; a napi összesítő automatikusan számolja.

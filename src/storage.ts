@@ -7,6 +7,7 @@ import type {
   CanvasStroke,
   PartEntry,
   PartKind,
+  PipeLineKind,
   Project,
 } from './types';
 
@@ -222,7 +223,8 @@ export async function addCanvasMarker(
 
 export async function addCanvasStroke(
   projectId: string,
-  points: CanvasPoint[]
+  points: CanvasPoint[],
+  pipeKind: PipeLineKind = 'vorlauf'
 ): Promise<CanvasStroke | null> {
   if (points.length < 2) return null;
   const data = await read();
@@ -230,6 +232,7 @@ export async function addCanvasStroke(
     id: await newId(),
     projectId,
     points,
+    pipeKind,
     createdAt: new Date().toISOString(),
   };
   data.canvasStrokes.push(stroke);

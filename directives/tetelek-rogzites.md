@@ -19,12 +19,13 @@ A szerelő telefonon gyorsan felírja és módosítja:
 
 1. A projekt megnyitása a teljes képernyős rajzlapra visz.
 2. A rajzlap kockás; **két ujjal nagyítható és mozgatható**, így nagy csőrendszer is elfér.
-3. **Rajz** az alapmód; az **X módot külön aktiválni kell**.
-4. X módban koppintással kerülnek le a nyitott muff-helyek.
-5. Kijelöl módban az X-ek egyenként választhatók.
-6. Hosszú nyomás a rajzlapon → közös típus + DM adatlap.
-7. Minden kijelölt X külön 1 db PartEntry lesz; az összesítő csoportosítja.
-8. Drótmérés ezen az adatlapon nincs.
+3. Rajzoláskor vonaltípust kell választani: **VL / Vorlauf** (meleg előremenő, folytonos) vagy **RL / Rücklauf** (visszatérő, szaggatott).
+4. **Rajz** az alapmód; az **X módot külön aktiválni kell**.
+5. X módban a koppintás a legközelebbi megrajzolt VL/RL vonalra illeszti az X-et; vonal mellé nem menthető.
+6. Kijelöl módban az X-ek egyenként választhatók.
+7. Hosszú nyomás a rajzlapon → közös típus + DM adatlap.
+8. Minden kijelölt X külön 1 db PartEntry lesz; az összesítő csoportosítja.
+9. Drótmérés ezen az adatlapon nincs.
 
 ## Lista UX szabályok (másodlagos nézet)
 

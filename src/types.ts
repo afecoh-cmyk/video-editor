@@ -45,11 +45,15 @@ export type CanvasPoint = {
   y: number;
 };
 
-/** Szabadkézi vonal a projekt rajzlapján. A koordináták 0–1 közöttiek. */
+export type PipeLineKind = 'vorlauf' | 'ruecklauf';
+
+/** Szabadkézi csővonal a projekt nagyítható rajzlapján, relatív világkoordinátákkal. */
 export type CanvasStroke = {
   id: string;
   projectId: string;
   points: CanvasPoint[];
+  /** Vorlauf = folytonos, Rücklauf = szaggatott. Régi rajznál hiányozhat. */
+  pipeKind?: PipeLineKind;
   createdAt: string;
 };
 

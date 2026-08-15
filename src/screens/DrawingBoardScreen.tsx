@@ -34,6 +34,7 @@ import {
   type CanvasStroke,
   type PartEntry,
   type PartKind,
+  type PipeLineKind,
 } from '../types';
 import { colors, spacing } from '../theme';
 
@@ -54,6 +55,7 @@ export function DrawingBoardScreen({ navigation, route }: Props) {
   const [kind, setKind] = useState<PartKind>('muffe');
   const [diameter, setDiameter] = useState('315');
   const [diameterTo, setDiameterTo] = useState('250');
+  const [pipeKind, setPipeKind] = useState<PipeLineKind>('vorlauf');
   const [view, setView] = useState<ViewTransform>({ scale: 1, offsetX: 0, offsetY: 0 });
   const drawingRef = useRef<CanvasPoint[]>([]);
   const viewRef = useRef(view);
@@ -176,7 +178,7 @@ export function DrawingBoardScreen({ navigation, route }: Props) {
           const points = drawingRef.current;
           drawingRef.current = [];
           setDraftPoints([]);
-          await addCanvasStroke(projectId, points);
+          await addCanvasStroke(projectId, points, pipeKind);
           await load();
         },
         onPanResponderTerminate: () => {
@@ -185,7 +187,7 @@ export function DrawingBoardScreen({ navigation, route }: Props) {
           setDraftPoints([]);
         },
       }),
-    [beginPinch, load, mode, projectId, screenToWorld, updateView]
+    [beginPinch, load, mode, pipeKind, projectId, screenToWorld, updateView]
   );
 
   const partsById = useMemo(() => new Map(parts.map((p) => [p.id, p])), [parts]);
@@ -200,10 +202,52 @@ export function DrawingBoardScreen({ navigation, route }: Props) {
       })
       .join(' ');
 
+  const nearestPointOnPipe = (screenX: number, screenY: number): CanvasPoint | null => {
+    let best: { point: CanvasPoint; distance: number } | null = null;
+    for (const stroke of strokes) {
+      for (let index = 1; index < stroke.points.length; index += 1) {
+        const worldA = stroke.points[index - 1];
+        const worldB = stroke.points[index];
+        const ax = worldA.x * size.width * view.scale + view.offsetX;
+        const ay = worldA.y * size.height * view.scale + view.offsetY;
+        const bx = worldB.x * size.width * view.scale + view.offsetX;
+        const by = worldB.y * size.height * view.scale + view.offsetY;
+        const dx = bx - ax;
+        const dy = by - ay;
+        const lengthSquared = dx * dx + dy * dy;
+        const ratio =
+          lengthSquared === 0
+            ? 0
+            : Math.max(
+                0,
+                Math.min(1, ((screenX - ax) * dx + (screenY - ay) * dy) / lengthSquared)
+              );
+        const closestX = ax + ratio * dx;
+        const closestY = ay + ratio * dy;
+        const distance = Math.hypot(screenX - closestX, screenY - closestY);
+        if (!best || distance < best.distance) {
+          best = {
+            distance,
+            point: {
+              x: worldA.x + ratio * (worldB.x - worldA.x),
+              y: worldA.y + ratio * (worldB.y - worldA.y),
+            },
+          };
+        }
+      }
+    }
+    return best && best.distance <= 52 ? best.point : null;
+  };
+
   const onCanvasPress = async (event: GestureResponderEvent) => {
     if (mode !== 'mark') return;
     const { locationX, locationY } = event.nativeEvent;
-    await addCanvasMarker(projectId, screenToWorld(locationX, locationY));
+    const snapped = nearestPointOnPipe(locationX, locationY);
+    if (!snapped) {
+      Alert.alert('Nincs csővonal a közelben', 'Koppints közelebb a megrajzolt VL vagy RL vonalhoz.');
+      return;
+    }
+    await addCanvasMarker(projectId, snapped);
     await load();
   };
 
@@ -296,6 +340,26 @@ export function DrawingBoardScreen({ navigation, route }: Props) {
         </Pressable>
       </View>
 
+      {mode === 'draw' ? (
+        <View style={styles.pipeSelector}>
+          <Text style={styles.pipeSelectorLabel}>Csővonal:</Text>
+          <Pressable
+            style={[styles.pipeButton, pipeKind === 'vorlauf' && styles.pipeButtonActive]}
+            onPress={() => setPipeKind('vorlauf')}
+          >
+            <Text style={styles.pipeSample}>━━━━</Text>
+            <Text style={styles.pipeButtonText}>VL · Vorlauf (meleg)</Text>
+          </Pressable>
+          <Pressable
+            style={[styles.pipeButton, pipeKind === 'ruecklauf' && styles.pipeButtonActive]}
+            onPress={() => setPipeKind('ruecklauf')}
+          >
+            <Text style={styles.pipeSample}>┄ ┄ ┄</Text>
+            <Text style={styles.pipeButtonText}>RL · Rücklauf</Text>
+          </Pressable>
+        </View>
+      ) : null}
+
       <View
         style={styles.canvas}
         onLayout={onLayout}
@@ -331,19 +395,21 @@ export function DrawingBoardScreen({ navigation, route }: Props) {
               strokeWidth={1}
             />
           ))}
-          {[...strokes, ...(draftPoints.length ? [{ id: 'draft', points: draftPoints }] : [])].map(
-            (stroke) => (
+          {[
+            ...strokes,
+            ...(draftPoints.length ? [{ id: 'draft', points: draftPoints, pipeKind }] : []),
+          ].map((stroke) => (
               <Path
                 key={stroke.id}
                 d={pathFor(stroke.points)}
-                stroke={colors.ink}
+                stroke="#154d78"
                 strokeWidth={3}
+                strokeDasharray={stroke.pipeKind === 'ruecklauf' ? '12 10' : undefined}
                 strokeLinecap="round"
                 strokeLinejoin="round"
                 fill="none"
               />
-            )
-          )}
+            ))}
         </Svg>
 
         {markers.map((marker) => {
@@ -382,8 +448,8 @@ export function DrawingBoardScreen({ navigation, route }: Props) {
           <View pointerEvents="none" style={styles.help}>
             <Text style={styles.helpTitle}>Rajzold fel a szakaszt</Text>
             <Text style={styles.helpText}>
-              Rajz mód: húzd az ujjad. Kapcsold be a „＋ X” módot, majd koppints minden nyitott
-              muff helyére.
+              Rajzold meg a folytonos VL és a szaggatott RL vonalat. Ezután kapcsold be a „＋ X”
+              módot, és koppints a vonal közelébe.
             </Text>
           </View>
         ) : null}
@@ -394,7 +460,7 @@ export function DrawingBoardScreen({ navigation, route }: Props) {
           {mode === 'draw'
             ? 'Rajz mód aktív · 2 ujjal nagyítás és mozgatás'
             : mode === 'mark'
-              ? 'X mód aktív — koppints · 2 ujjal nagyítás és mozgatás'
+              ? 'X mód aktív — az X a legközelebbi csővonalra ugrik'
               : selected.size
                 ? `${selected.size} X kijelölve — nyomd hosszan a rajzlapot`
                 : 'Koppints egyenként az X-ekre · 2 ujjal nagyítás'}
@@ -493,6 +559,27 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
   },
+  pipeSelector: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 8,
+    paddingBottom: 8,
+    backgroundColor: colors.surface,
+  },
+  pipeSelectorLabel: { color: colors.muted, fontSize: 12, fontWeight: '700' },
+  pipeButton: {
+    flex: 1,
+    minHeight: 42,
+    paddingHorizontal: 8,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: colors.border,
+    justifyContent: 'center',
+  },
+  pipeButtonActive: { borderColor: colors.accent, backgroundColor: '#fff3e6' },
+  pipeSample: { color: '#154d78', fontWeight: '900', lineHeight: 13 },
+  pipeButtonText: { color: colors.ink, fontSize: 11, fontWeight: '700' },
   toolButton: {
     minHeight: 42,
     paddingHorizontal: 12,
