@@ -1,8 +1,11 @@
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { StatusBar } from 'expo-status-bar';
+import { useEffect } from 'react';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { InstallButton } from './src/components/InstallButton';
 import type { RootStackParamList } from './src/navigation';
+import { registerWebApp } from './src/pwa';
 import { DailySummaryScreen } from './src/screens/DailySummaryScreen';
 import { DrawingBoardScreen } from './src/screens/DrawingBoardScreen';
 import { MuffListScreen } from './src/screens/MuffListScreen';
@@ -13,6 +16,10 @@ import { colors } from './src/theme';
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
 export default function App() {
+  useEffect(() => {
+    registerWebApp();
+  }, []);
+
   return (
     <SafeAreaProvider>
       <NavigationContainer>
@@ -23,6 +30,7 @@ export default function App() {
             headerTintColor: '#fff',
             headerTitleStyle: { fontWeight: '700' },
             contentStyle: { backgroundColor: colors.bg },
+            headerRight: () => <InstallButton />,
           }}
         >
           <Stack.Screen

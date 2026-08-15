@@ -41,7 +41,7 @@ Cél: nap végére egyértelmű összesítés (30–40 tétel mellett is).
 - Ne hozd vissza a régi video-editor kódot.
 - Ne építs felesleges dashboardot, kártyaerdőt, purple/glow UI-t.
 - Ne tegyél titkokat a repóba (`.env` gitignore-ban van).
-- Ne ígérj telepítő-linket, amíg nincs tényleges web deploy / EAS build.
+- Ne ígérj Play/App Store APK-t, amíg nincs EAS build. A webes **PWA Letöltés** gomb (kezdőképernyőre telepítés) rendben van.
 - Ne töröld a muff/reduzir/abzweig +/− UX-et „szépítés” címén.
 
 ## Fontos fájlok

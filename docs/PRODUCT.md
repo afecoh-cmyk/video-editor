@@ -117,6 +117,10 @@ A papír **Ohmmeter / MH3** mezője ehhez kapcsolódik: a projekten jelezni kell
 - Első UI nyelv: **német** (a jegyzőkönyv nyelve) + **magyar** (fejlesztői / belső használat)
 - Mezőnevek a papírral egyezzenek (Schrumpfmuffen, Mantelrohr, Prüfdruck…)
 
+## Telepítés (PWA)
+
+A webes Muffe Plan **Progressive Web App**: a jobb felső **Letöltés** gombbal a telefon kezdőképernyőjére tehető. Offline is működik, nincs külön Play/App Store telepítő az MVP-ben.
+
 ## Sikerkritériumok
 
 1. 30 muff felvitele < 5 perc (cél)

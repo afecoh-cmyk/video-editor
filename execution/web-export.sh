@@ -11,4 +11,5 @@ fi
 
 echo "▶ npx expo export --platform web --output-dir dist"
 npx expo export --platform web --output-dir dist
+python3 execution/inject-pwa.py
 echo "✔ Export kész: dist/"

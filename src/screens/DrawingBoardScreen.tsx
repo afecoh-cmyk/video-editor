@@ -15,6 +15,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import Svg, { Line, Path } from 'react-native-svg';
 import { DimensionPicker } from '../components/DimensionPicker';
+import { InstallButton } from '../components/InstallButton';
 import type { RootStackParamList } from '../navigation';
 import {
   makePipePair,
@@ -115,15 +116,18 @@ export function DrawingBoardScreen({ navigation, route }: Props) {
     navigation.setOptions({
       title: project.baustellenort || 'Rajzlap',
       headerRight: () => (
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Projekt menü"
-          hitSlop={12}
-          onPress={() => setProjectMenuOpen(true)}
-          style={styles.headerMenu}
-        >
-          <Text selectable={false} style={styles.headerMenuText}>⋮</Text>
-        </Pressable>
+        <View style={styles.headerRight}>
+          <InstallButton />
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Projekt menü"
+            hitSlop={12}
+            onPress={() => setProjectMenuOpen(true)}
+            style={styles.headerMenu}
+          >
+            <Text selectable={false} style={styles.headerMenuText}>⋮</Text>
+          </Pressable>
+        </View>
       ),
     });
     setMarkers(canvas.markers);
@@ -839,6 +843,7 @@ const webGestureLock =
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: '#dfe5e8' },
+  headerRight: { flexDirection: 'row', alignItems: 'center' },
   headerMenu: {
     width: 36,
     height: 36,

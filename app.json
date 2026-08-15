@@ -26,7 +26,13 @@
       "predictiveBackGestureEnabled": false
     },
     "web": {
-      "favicon": "./assets/favicon.png"
+      "favicon": "./assets/favicon.png",
+      "name": "Muffe Plan",
+      "shortName": "Muffe Plan",
+      "lang": "hu",
+      "themeColor": "#1A2332",
+      "backgroundColor": "#1A2332",
+      "display": "standalone"
     }
   }
 }
