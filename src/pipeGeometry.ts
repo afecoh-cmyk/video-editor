@@ -239,7 +239,18 @@ function preserveVorlaufSide(
     : [nextRl, nextVl];
 }
 
-/** Jobbra/balra toldás: a rajz a meglévő csőpár végéhez tartozik. */
+const END_VERTEX_PX = 32;
+
+function incomingEndDirection(
+  points: CanvasPoint[],
+  index: number,
+  size: Size
+): { x: number; y: number } {
+  if (index === 0) return segmentDirection(points[1], points[0], size);
+  return segmentDirection(points[points.length - 2], points[points.length - 1], size);
+}
+
+/** Jobbra/balra toldás: csak a tényleges csővég, nem a szár közepén lévő T-ág. */
 export function findPairEndJoin(
   incomingCenter: CanvasPoint[],
   strokes: CanvasStroke[],
@@ -253,28 +264,39 @@ export function findPairEndJoin(
     const center = pairCenterline(existing.vorlauf.points, existing.ruecklauf.points);
     if (center.length < 2) continue;
     const spacingPx = pairSpacingPx(existing.vorlauf.points, existing.ruecklauf.points, size);
-    const existingEnds = [
-      { index: 0, point: center[0] },
-      { index: center.length - 1, point: center[center.length - 1] },
-    ];
     const incomingEnds = [
       { index: 0, point: incomingCenter[0] },
       { index: incomingCenter.length - 1, point: incomingCenter[incomingCenter.length - 1] },
     ];
 
-    for (const existingEnd of existingEnds) {
-      for (const incomingEnd of incomingEnds) {
-        const score = distancePx(incomingEnd.point, existingEnd.point, size);
-        if (score > maxDistancePx) continue;
-        if (!best || score < best.score) {
-          best = {
-            pairId: existing.pairId,
-            existingJoinIndex: existingEnd.index,
-            incomingJoinIndex: incomingEnd.index,
-            spacingPx,
-            score,
-          };
-        }
+    for (const incomingEnd of incomingEnds) {
+      const hit = closestOnPolyline(incomingEnd.point, center, size);
+      if (!hit || hit.distance > maxDistancePx) continue;
+      const startDist = distancePx(hit.point, center[0], size);
+      const endDist = distancePx(hit.point, center[center.length - 1], size);
+      const existingJoinIndex = startDist <= endDist ? 0 : center.length - 1;
+      const hitToEnd = Math.min(startDist, endDist);
+      const existingDir = segmentDirection(
+        center[hit.segmentIndex],
+        center[hit.segmentIndex + 1],
+        size
+      );
+      const incomingDir = incomingEndDirection(incomingCenter, incomingEnd.index, size);
+      const alignment = Math.abs(
+        incomingDir.x * existingDir.x + incomingDir.y * existingDir.y
+      );
+      // Merőleges T a szárra: ne húzza a cső végére, még rövid szakaszon sem.
+      if (alignment <= 0.5 && hitToEnd > 16) continue;
+      if (hitToEnd > END_VERTEX_PX) continue;
+      const score = hit.distance + hitToEnd;
+      if (!best || score < best.score) {
+        best = {
+          pairId: existing.pairId,
+          existingJoinIndex,
+          incomingJoinIndex: incomingEnd.index,
+          spacingPx,
+          score,
+        };
       }
     }
   }
@@ -329,6 +351,82 @@ export function mergeCenterlineOntoPair(
   );
 }
 
+type BranchHit = {
+  newIndex: number;
+  vl: CanvasPoint;
+  rl: CanvasPoint;
+  spacingPx: number;
+  score: number;
+};
+
+function findBranchHit(
+  incomingCenter: CanvasPoint[],
+  strokes: CanvasStroke[],
+  size: Size,
+  maxDistancePx: number
+): BranchHit | null {
+  if (incomingCenter.length < 2) return null;
+  const incomingEnds = [
+    { index: 0, point: incomingCenter[0] },
+    { index: incomingCenter.length - 1, point: incomingCenter[incomingCenter.length - 1] },
+  ];
+  let best: BranchHit | null = null;
+
+  for (const existing of strokePairs(strokes)) {
+    const center = pairCenterline(existing.vorlauf.points, existing.ruecklauf.points);
+    if (center.length < 2) continue;
+    const spacingPx = pairSpacingPx(existing.vorlauf.points, existing.ruecklauf.points, size);
+    for (const incoming of incomingEnds) {
+      const hit = closestOnPolyline(incoming.point, center, size);
+      if (!hit || hit.distance > maxDistancePx) continue;
+      const startDist = distancePx(hit.point, center[0], size);
+      const endDist = distancePx(hit.point, center[center.length - 1], size);
+      if (Math.min(startDist, endDist) <= 16) continue;
+      const existingDir = segmentDirection(
+        center[hit.segmentIndex],
+        center[hit.segmentIndex + 1],
+        size
+      );
+      const incomingDir = incomingEndDirection(incomingCenter, incoming.index, size);
+      const alignment = Math.abs(
+        incomingDir.x * existingDir.x + incomingDir.y * existingDir.y
+      );
+      if (alignment > 0.5) continue;
+      if (!best || hit.distance < best.score) {
+        best = {
+          newIndex: incoming.index,
+          vl: interpolate(existing.vorlauf.points, hit.segmentIndex, hit.ratio),
+          rl: interpolate(existing.ruecklauf.points, hit.segmentIndex, hit.ratio),
+          spacingPx,
+          score: hit.distance,
+        };
+      }
+    }
+  }
+  return best;
+}
+
+function applyBranchHit(
+  pair: [CanvasPoint[], CanvasPoint[]],
+  hit: BranchHit,
+  size: Size
+): [CanvasPoint[], CanvasPoint[]] {
+  const [vorlauf, ruecklauf] = pair;
+  const index = hit.newIndex;
+  const oldCenter = midpoint(vorlauf[index], ruecklauf[index]);
+  const newCenter = midpoint(hit.vl, hit.rl);
+  const dx = newCenter.x - oldCenter.x;
+  const dy = newCenter.y - oldCenter.y;
+  const nextVl = vorlauf.map((point) => ({ x: point.x + dx, y: point.y + dy }));
+  const nextRl = ruecklauf.map((point) => ({ x: point.x + dx, y: point.y + dy }));
+  const swapped =
+    distancePx(nextVl[index], hit.vl, size) + distancePx(nextRl[index], hit.rl, size) >
+    distancePx(nextVl[index], hit.rl, size) + distancePx(nextRl[index], hit.vl, size);
+  nextVl[index] = swapped ? hit.rl : hit.vl;
+  nextRl[index] = swapped ? hit.vl : hit.rl;
+  return [nextVl, nextRl];
+}
+
 /** Abzweig: közel merőleges ág a főpár ugyanazon pontjára ül VL→VL, RL→RL. */
 export function snapBranchPairToExisting(
   pair: [CanvasPoint[], CanvasPoint[]],
@@ -338,63 +436,35 @@ export function snapBranchPairToExisting(
 ): [CanvasPoint[], CanvasPoint[]] {
   const [vorlauf, ruecklauf] = pair;
   if (vorlauf.length < 2 || ruecklauf.length < 2) return pair;
+  const incomingCenter = pairCenterline(vorlauf, ruecklauf);
+  const hit = findBranchHit(incomingCenter, strokes, size, maxDistancePx);
+  return hit ? applyBranchHit(pair, hit, size) : pair;
+}
 
-  const incomingEnds = [
-    {
-      index: 0,
-      center: midpoint(vorlauf[0], ruecklauf[0]),
-      direction: segmentDirection(vorlauf[1], vorlauf[0], size),
-    },
-    {
-      index: vorlauf.length - 1,
-      center: midpoint(vorlauf[vorlauf.length - 1], ruecklauf[ruecklauf.length - 1]),
-      direction: segmentDirection(vorlauf[vorlauf.length - 2], vorlauf[vorlauf.length - 1], size),
-    },
-  ];
+export type DrawnStrokeResult =
+  | { action: 'extend'; pairId: string; vorlauf: CanvasPoint[]; ruecklauf: CanvasPoint[] }
+  | { action: 'add'; vorlauf: CanvasPoint[]; ruecklauf: CanvasPoint[] };
 
-  let best: {
-    newIndex: number;
-    vl: CanvasPoint;
-    rl: CanvasPoint;
-    score: number;
-  } | null = null;
-
-  for (const existing of strokePairs(strokes)) {
-    const center = pairCenterline(existing.vorlauf.points, existing.ruecklauf.points);
-    for (const incoming of incomingEnds) {
-      const hit = closestOnPolyline(incoming.center, center, size);
-      if (!hit || hit.distance > maxDistancePx) continue;
-      const nearEnd = hit.ratio <= 0.08 || hit.ratio >= 0.92;
-      if (nearEnd && (hit.segmentIndex === 0 || hit.segmentIndex === center.length - 2)) {
-        continue;
-      }
-      const segmentStart = center[hit.segmentIndex];
-      const segmentEnd = center[hit.segmentIndex + 1];
-      const existingDir = segmentDirection(segmentStart, segmentEnd, size);
-      const alignment = Math.abs(
-        incoming.direction.x * existingDir.x + incoming.direction.y * existingDir.y
-      );
-      if (alignment > 0.45) continue;
-      if (!best || hit.distance < best.score) {
-        best = {
-          newIndex: incoming.index,
-          vl: interpolate(existing.vorlauf.points, hit.segmentIndex, hit.ratio),
-          rl: interpolate(existing.ruecklauf.points, hit.segmentIndex, hit.ratio),
-          score: hit.distance,
-        };
-      }
+/** Elengedett vonal: toldás a végre, T-ág a szárra, vagy új önálló pár. */
+export function resolveDrawnStroke(
+  incomingCenter: CanvasPoint[],
+  strokes: CanvasStroke[],
+  size: Size,
+  scale: number
+): DrawnStrokeResult | null {
+  if (incomingCenter.length < 2) return null;
+  const endJoin = findPairEndJoin(incomingCenter, strokes, size, 80 / scale);
+  if (endJoin) {
+    const merged = mergeCenterlineOntoPair(incomingCenter, endJoin, strokes, size);
+    if (merged) {
+      return { action: 'extend', pairId: endJoin.pairId, vorlauf: merged[0], ruecklauf: merged[1] };
     }
   }
-
-  if (!best) return pair;
-  const nextVl = [...vorlauf];
-  const nextRl = [...ruecklauf];
-  const swapped =
-    distancePx(nextVl[best.newIndex], best.vl, size) +
-      distancePx(nextRl[best.newIndex], best.rl, size) >
-    distancePx(nextVl[best.newIndex], best.rl, size) +
-      distancePx(nextRl[best.newIndex], best.vl, size);
-  nextVl[best.newIndex] = swapped ? best.rl : best.vl;
-  nextRl[best.newIndex] = swapped ? best.vl : best.rl;
-  return [nextVl, nextRl];
+  const branch = findBranchHit(incomingCenter, strokes, size, 72 / scale);
+  const pair = makePipePair(incomingCenter, size, branch?.spacingPx ?? 28);
+  if (branch) {
+    const [vorlauf, ruecklauf] = applyBranchHit(pair, branch, size);
+    return { action: 'add', vorlauf, ruecklauf };
+  }
+  return { action: 'add', vorlauf: pair[0], ruecklauf: pair[1] };
 }

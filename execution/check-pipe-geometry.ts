@@ -2,6 +2,7 @@ import {
   findPairEndJoin,
   makePipePair,
   mergeCenterlineOntoPair,
+  resolveDrawnStroke,
   snapPipePathAngles,
 } from '../src/pipeGeometry';
 import type { CanvasStroke } from '../src/types';
@@ -97,5 +98,24 @@ assert(!!continueJoin, 'Az egyenes folytatást fel kell ismerni');
 const continued = mergeCenterlineOntoPair(continueIncoming, continueJoin!, strokes, size);
 assert(!!continued, 'Az egyenes folytatásnak össze kell olvadnia');
 assert(continued![0][continued![0].length - 1].y > 0.7, 'Lefelé kell hosszabbodnia');
+
+const branchIncoming = snapPipePathAngles(
+  [
+    { x: 0.55, y: 0.35 },
+    { x: 0.82, y: 0.35 },
+  ],
+  size
+);
+assert(!findPairEndJoin(branchIncoming, strokes, size, 80), 'A T-ágat nem szabad a cső végére húzni');
+const branched = resolveDrawnStroke(branchIncoming, strokes, size, 1);
+assert(branched?.action === 'add', 'Az Abzweig külön pár marad');
+const branchTip = branched!.vorlauf[0].x < branched!.vorlauf[branched!.vorlauf.length - 1].x
+  ? branched!.vorlauf[0]
+  : branched!.vorlauf[branched!.vorlauf.length - 1];
+assert(
+  Math.abs(branchTip.y - 0.35) < 0.04,
+  `A T-ág a szár közepén maradjon (y=${branchTip.y}), ne a végén`
+);
+assert(branchTip.y < 0.47, 'A kereszteződés nem csúszhat a cső végére');
 
 console.log('✔ Csőtoldás geometria rendben');

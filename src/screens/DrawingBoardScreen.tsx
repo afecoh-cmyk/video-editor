@@ -16,11 +16,9 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import Svg, { Line, Path } from 'react-native-svg';
 import type { RootStackParamList } from '../navigation';
 import {
-  findPairEndJoin,
   makePipePair,
-  mergeCenterlineOntoPair,
+  resolveDrawnStroke,
   simplifyPipePath,
-  snapBranchPairToExisting,
   snapPipePathAngles,
 } from '../pipeGeometry';
 import {
@@ -314,24 +312,13 @@ export function DrawingBoardScreen({ navigation, route }: Props) {
           const simplified = simplifyPipePath(points, size, 9 / viewRef.current.scale);
           const cleaned = snapPipePathAngles(simplified, size);
           if (cleaned.length < 2) return;
-          const snapPx = 80 / viewRef.current.scale;
-          const endJoin = findPairEndJoin(cleaned, strokes, size, snapPx);
-          if (endJoin) {
-            const merged = mergeCenterlineOntoPair(cleaned, endJoin, strokes, size);
-            if (merged) {
-              await extendCanvasStrokePair(endJoin.pairId, merged[0], merged[1]);
-              await load();
-              return;
-            }
+          const resolved = resolveDrawnStroke(cleaned, strokes, size, viewRef.current.scale);
+          if (!resolved) return;
+          if (resolved.action === 'extend') {
+            await extendCanvasStrokePair(resolved.pairId, resolved.vorlauf, resolved.ruecklauf);
+          } else {
+            await addCanvasStrokePair(projectId, resolved.vorlauf, resolved.ruecklauf);
           }
-          const rawPair = makePipePair(cleaned, size);
-          const [vorlauf, ruecklauf] = snapBranchPairToExisting(
-            rawPair,
-            strokes,
-            size,
-            48 / viewRef.current.scale
-          );
-          await addCanvasStrokePair(projectId, vorlauf, ruecklauf);
           await load();
         },
         onPanResponderTerminate: () => {
@@ -747,110 +734,134 @@ export function DrawingBoardScreen({ navigation, route }: Props) {
         transparent
         animationType="slide"
         onRequestClose={() => {
-          if (dimensionPicker) setDimensionPicker(null);
-          else setModalOpen(false);
+          setDimensionPicker(null);
+          setModalOpen(false);
         }}
       >
-        <Pressable
-          style={styles.backdrop}
-          onPress={() => {
-            if (dimensionPicker) setDimensionPicker(null);
-            else setModalOpen(false);
-          }}
-        >
-          <Pressable style={styles.sheet} onPress={(event) => event.stopPropagation()}>
-            {dimensionPicker ? (
-              <>
-                <Text style={styles.sheetTitle}>
-                  {dimensionPicker === 'secondary' ? 'Második DM kiválasztása' : 'DM kiválasztása'}
-                </Text>
-                <Text style={styles.sheetHint}>Válassz méretet DM 90–710 között.</Text>
-                <ScrollView style={styles.dimensionList} showsVerticalScrollIndicator>
-                  {COMMON_DIAMETERS.map((dm) => {
-                    const active =
-                      dimensionPicker === 'secondary'
-                        ? diameterTo === String(dm)
-                        : diameter === String(dm);
-                    return (
-                      <Pressable
-                        key={dm}
-                        style={[styles.dimensionRow, active && styles.dimensionRowActive]}
-                        onPress={() => {
-                          if (dimensionPicker === 'secondary') setDiameterTo(String(dm));
-                          else setDiameter(String(dm));
-                          setDimensionPicker(null);
-                        }}
-                      >
-                        <Text
-                          style={[
-                            styles.dimensionRowText,
-                            active && styles.dimensionRowTextActive,
-                          ]}
-                        >
-                          DM {dm}
-                        </Text>
-                        {active ? <Text style={styles.dimensionCheck}>✓</Text> : null}
-                      </Pressable>
-                    );
-                  })}
-                </ScrollView>
-                <Pressable style={styles.menuCancel} onPress={() => setDimensionPicker(null)}>
-                  <Text style={styles.menuCancelText}>Vissza</Text>
+        <View style={styles.backdrop}>
+          <Pressable
+            style={StyleSheet.absoluteFill}
+            onPress={() => {
+              setDimensionPicker(null);
+              setModalOpen(false);
+            }}
+          />
+          <View style={styles.sheet}>
+            <Text style={styles.sheetTitle}>{openMarkers.length} aktuális X átalakítása</Text>
+            <Text style={styles.sheetHint}>
+              Először a típust válaszd (Muffe / Reduzir / Abzweig), utána a DM-et. A kiválasztott
+              méret megmarad.
+            </Text>
+
+            <View style={styles.chips}>
+              {PART_KINDS.map((item) => (
+                <Pressable
+                  key={item.id}
+                  style={[styles.chip, kind === item.id && styles.chipActive]}
+                  onPress={() => setKind(item.id)}
+                >
+                  <Text style={[styles.chipText, kind === item.id && styles.chipTextActive]}>
+                    {item.label}
+                  </Text>
                 </Pressable>
-              </>
-            ) : (
-              <>
-                <Text style={styles.sheetTitle}>{openMarkers.length} aktuális X átalakítása</Text>
-                <Text style={styles.sheetHint}>
-                  Mindegyik jelenlegi X egy darab tétel lesz. Az ezután lerakott X-ek új csoportot
-                  alkotnak.
-                </Text>
+              ))}
+            </View>
 
-                <View style={styles.chips}>
-                  {PART_KINDS.map((item) => (
+            <Text style={styles.label}>{kind === 'abzweig' ? 'Haupt DM' : 'DM'}</Text>
+            <Pressable
+              style={styles.dimensionField}
+              onPress={() =>
+                setDimensionPicker((current) => (current === 'primary' ? null : 'primary'))
+              }
+            >
+              <Text style={styles.dimensionValue}>DM {diameter}</Text>
+              <Text style={styles.dimensionArrow}>
+                {dimensionPicker === 'primary' ? '⌃' : '⌄'}
+              </Text>
+            </Pressable>
+            {dimensionPicker === 'primary' ? (
+              <ScrollView style={styles.dimensionList} nestedScrollEnabled keyboardShouldPersistTaps="handled">
+                {COMMON_DIAMETERS.map((dm) => {
+                  const active = diameter === String(dm);
+                  return (
                     <Pressable
-                      key={item.id}
-                      style={[styles.chip, kind === item.id && styles.chipActive]}
-                      onPress={() => setKind(item.id)}
+                      key={dm}
+                      style={[styles.dimensionRow, active && styles.dimensionRowActive]}
+                      onPress={() => {
+                        setDiameter(String(dm));
+                        setDimensionPicker(null);
+                      }}
                     >
-                      <Text style={[styles.chipText, kind === item.id && styles.chipTextActive]}>
-                        {item.label}
+                      <Text
+                        style={[
+                          styles.dimensionRowText,
+                          active && styles.dimensionRowTextActive,
+                        ]}
+                      >
+                        DM {dm}
                       </Text>
+                      {active ? <Text style={styles.dimensionCheck}>✓</Text> : null}
                     </Pressable>
-                  ))}
-                </View>
+                  );
+                })}
+              </ScrollView>
+            ) : null}
 
-                <Text style={styles.label}>{kind === 'abzweig' ? 'Haupt DM' : 'DM'}</Text>
+            {kind !== 'muffe' ? (
+              <>
+                <Text style={styles.label}>
+                  {kind === 'reduzir' ? 'Cél DM' : 'Abzweig DM'}
+                </Text>
                 <Pressable
                   style={styles.dimensionField}
-                  onPress={() => setDimensionPicker('primary')}
+                  onPress={() =>
+                    setDimensionPicker((current) => (current === 'secondary' ? null : 'secondary'))
+                  }
                 >
-                  <Text style={styles.dimensionValue}>DM {diameter}</Text>
-                  <Text style={styles.dimensionArrow}>⌄</Text>
+                  <Text style={styles.dimensionValue}>DM {diameterTo}</Text>
+                  <Text style={styles.dimensionArrow}>
+                    {dimensionPicker === 'secondary' ? '⌃' : '⌄'}
+                  </Text>
                 </Pressable>
-
-                {kind !== 'muffe' ? (
-                  <>
-                    <Text style={styles.label}>
-                      {kind === 'reduzir' ? 'Cél DM' : 'Abzweig DM'}
-                    </Text>
-                    <Pressable
-                      style={styles.dimensionField}
-                      onPress={() => setDimensionPicker('secondary')}
-                    >
-                      <Text style={styles.dimensionValue}>DM {diameterTo}</Text>
-                      <Text style={styles.dimensionArrow}>⌄</Text>
-                    </Pressable>
-                  </>
+                {dimensionPicker === 'secondary' ? (
+                  <ScrollView
+                    style={styles.dimensionList}
+                    nestedScrollEnabled
+                    keyboardShouldPersistTaps="handled"
+                  >
+                    {COMMON_DIAMETERS.map((dm) => {
+                      const active = diameterTo === String(dm);
+                      return (
+                        <Pressable
+                          key={`to-${dm}`}
+                          style={[styles.dimensionRow, active && styles.dimensionRowActive]}
+                          onPress={() => {
+                            setDiameterTo(String(dm));
+                            setDimensionPicker(null);
+                          }}
+                        >
+                          <Text
+                            style={[
+                              styles.dimensionRowText,
+                              active && styles.dimensionRowTextActive,
+                            ]}
+                          >
+                            DM {dm}
+                          </Text>
+                          {active ? <Text style={styles.dimensionCheck}>✓</Text> : null}
+                        </Pressable>
+                      );
+                    })}
+                  </ScrollView>
                 ) : null}
-
-                <Pressable style={styles.saveButton} onPress={saveConversion}>
-                  <Text style={styles.saveText}>Átalakítás ({openMarkers.length} db)</Text>
-                </Pressable>
               </>
-            )}
-          </Pressable>
-        </Pressable>
+            ) : null}
+
+            <Pressable style={styles.saveButton} onPress={saveConversion}>
+              <Text style={styles.saveText}>Átalakítás ({openMarkers.length} db)</Text>
+            </Pressable>
+          </View>
+        </View>
       </Modal>
     </View>
   );
@@ -1103,7 +1114,15 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.lg,
     maxHeight: '82%',
   },
-  dimensionList: { maxHeight: 430 },
+  dimensionList: {
+    maxHeight: 220,
+    marginTop: -8,
+    marginBottom: spacing.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 8,
+    backgroundColor: '#fff',
+  },
   dimensionRow: {
     minHeight: 48,
     flexDirection: 'row',
