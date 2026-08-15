@@ -38,7 +38,7 @@ export function PopIn({
   }, [delay, opacity, scale]);
 
   return (
-    <Animated.View pointerEvents={pointerEvents} style={[style, { opacity, transform: [{ scale }] }]}>
+    <Animated.View style={[style, { opacity, transform: [{ scale }], pointerEvents }]}>
       {children}
     </Animated.View>
   );
