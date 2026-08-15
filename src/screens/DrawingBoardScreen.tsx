@@ -205,11 +205,30 @@ function snapEndpointToExistingPipe(
   const branchDx = (neighbor.x - point.x) * size.width;
   const branchDy = (neighbor.y - point.y) * size.height;
   const branchLength = Math.hypot(branchDx, branchDy) || 1;
+  const matchingStrokes = strokes.filter(
+    (item) => (item.pipeKind ?? 'vorlauf') === pipeKind
+  );
+
+  // Meglévő sarok közelében mindig a tényleges töréspont élvez elsőbbséget.
+  let nearestCorner: { point: CanvasPoint; distance: number } | null = null;
+  for (const stroke of matchingStrokes) {
+    for (const corner of stroke.points) {
+      const distance = Math.hypot(
+        (point.x - corner.x) * size.width,
+        (point.y - corner.y) * size.height
+      );
+      if (!nearestCorner || distance < nearestCorner.distance) {
+        nearestCorner = { point: corner, distance };
+      }
+    }
+  }
+  if (nearestCorner && nearestCorner.distance <= maxDistancePx) {
+    return nearestCorner.point;
+  }
+
   let best: { point: CanvasPoint; distance: number } | null = null;
 
-  for (const stroke of strokes.filter(
-    (item) => (item.pipeKind ?? 'vorlauf') === pipeKind
-  )) {
+  for (const stroke of matchingStrokes) {
     for (let index = 1; index < stroke.points.length; index += 1) {
       const a = stroke.points[index - 1];
       const b = stroke.points[index];

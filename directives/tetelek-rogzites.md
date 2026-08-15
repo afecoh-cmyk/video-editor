@@ -26,6 +26,7 @@ A szerelő telefonon gyorsan felírja és módosítja:
    - A megtartott szakaszok a legközelebbi 30°-os tervrajzi irányra igazodnak (0°, 30°, 60°, 90° stb.); a valódi ferde törést nem szabad 90°-ra kényszeríteni.
    - A VL/RL pár valódi sarokillesztést használ: a beállított távolság a sarkokban sem szűkülhet vagy tágulhat.
    - Ha egy új ág vége 36 px-en belül, közel merőlegesen ér egy meglévő vonalpárhoz, a VL és RL végpont külön-külön a megfelelő fővonalra illeszkedik (Abzweig-csatlakozás).
+   - Meglévő sarok 36 px-es környezetében a tényleges VL/RL sarokpont elsőbbséget élvez a szakaszra vetítéssel szemben; sarokra rajzolva nem maradhat rés vagy ferde toldás.
    - **Cső módban** koppintással kijelölhető egy vonalpár; a `− / +` vezérlővel 12–80 px között állítható a VL–RL távolság.
    - A vonalhoz kapcsolt X-eknek együtt kell mozogniuk a távolság állításakor.
 4. **Rajz** az alapmód; az **X módot külön aktiválni kell**.
