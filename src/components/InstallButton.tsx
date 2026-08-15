@@ -82,8 +82,8 @@ export function InstallButton() {
           <View style={styles.card}>
             <Text style={styles.title}>Muffe Plan letöltése</Text>
             <Text style={styles.body}>
-              A projektek csak ezen a telefonon / böngészőben maradnak. Nincs felhő, más készülék nem
-              látja. A saját APK a GitHub Actionsből telepíthető.
+              Tedd a kezdőképernyőre: ikon lesz belőle, offline is megy. A projektek csak ezen a
+              telefonon maradnak, nem mennek felhőbe.
             </Text>
 
             {canPrompt ? (

@@ -1,19 +1,29 @@
-# Webes build (csak fejlesztői próba)
+# Webes build és publikálás
 
 ## Cél
 
-Böngészős **próbaverzió** a Cursor felhőhöz. Ez **nem** a telefonos app, és nem nyilvános letöltőoldal.
+Böngészőből / telefonról megnyitható **Muffe Plan** (PWA). A `main` ág a letölthető app. Telepítés: lásd `directives/telepites.md`.
 
-A kész app a **saját telefonon** fut: GitHub Actions APK (`.github/workflows/android-apk.yml`). Az adatok AsyncStorage-ban, a készüléken maradnak. Nincs felhő, nincs nyilvános Pages.
+## Lépések
 
-## Lépések (dev preview)
+1. Web függőségek: `npx expo install react-dom react-native-web react-native-svg @expo/metro-runtime`
+2. Typecheck: `bash execution/typecheck.sh`
+3. Export (dev preview, gyökérút): `bash execution/web-export.sh`
+4. Export GitHub Pages-re: `WEB_BASE_PATH=/video-editor bash execution/web-export.sh`
+5. A `dist/` mappa a statikus web build
+6. **Tartós app:** `main`-re push után a `.github/workflows/web-deploy.yml` GitHub Pages-re teszi.
+   - Cím: `https://afecoh-cmyk.github.io/video-editor/`
+   - A telefon **Letöltés** gombja ezt a címet telepíti.
 
-1. Typecheck: `bash execution/typecheck.sh`
-2. Export: `bash execution/web-export.sh`
-3. A `dist/` mappa a statikus web build — csak ideiglenes próbához.
+## Kimenet
+
+- `dist/index.html` + JS bundle
+- Nyilvános URL (ha a Pages be van kapcsolva)
 
 ## Különleges esetek
 
-- A webes próba és a telefonos APK **külön tárolót** használ. Ami a böngészőben van, az nem másolódik az APK-ba.
-- AsyncStorage weben localStorage.
-- Play/App Store nincs. A saját APK a GitHub Actions artifactból telepíthető (privát repo, csak te látod).
+- Privát GitHub repo: Pages-t egyszer be kell kapcsolni (Settings → Pages → GitHub Actions).
+- A próba (trycloudflare) link nem tartós; a Pages-cím marad.
+- AsyncStorage weben localStorage — az adat a telefonon / böngészőben marad, nem a GitHubon.
+- Mobil Expo Go / EAS APK külön irányelv — ez csak web PWA.
+- `_expo` mappa miatt a `dist/.nojekyll` kötelező.

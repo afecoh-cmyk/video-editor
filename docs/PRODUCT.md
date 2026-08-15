@@ -120,7 +120,7 @@ A papír **Ohmmeter / MH3** mezője ehhez kapcsolódik: a projekten jelezni kell
 
 ## Telepítés (PWA)
 
-A Muffe Plan **csak a saját telefonon** fut. Az adatok a készüléken maradnak (AsyncStorage), nincs felhő és nincs nyilvános weboldal. A telepítő APK a privát GitHub Actionsből tölthető le. Play/App Store nincs.
+A webes Muffe Plan **Progressive Web App**: a jobb felső **Letöltés** gombbal a telefon kezdőképernyőjére tehető. Az adatok csak azon a telefonon maradnak (nincs felhő). Tartós cím a `main` után: https://afecoh-cmyk.github.io/video-editor/ — offline is megy. Play/App Store / APK zip nincs az MVP-ben.
 
 ## Sikerkritériumok
 
