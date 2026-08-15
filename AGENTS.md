@@ -1,5 +1,7 @@
 # Ügynök Utasítások — Muffe Plan
 
+Rövid parancs / stack / pointer házirend: [HAZIREND.md](HAZIREND.md)
+
 > [!IMPORTANT]
 > **Nyelv:** Minden kommunikáció, terv, jelentés, dokumentáció és **commit üzenet magyarul** legyen.
 >

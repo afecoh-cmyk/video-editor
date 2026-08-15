@@ -21,6 +21,7 @@ Expo Go-val telefonon.
 ## Dokumentáció
 
 - [AGENTS.md](AGENTS.md) — Muffe Plan ügynök-szabályok (magyar)
+- [HAZIREND.md](HAZIREND.md) — rövid agent házirend (parancsok, stack, pointerek)
 - [directives/](directives/) — folyamatleírások
 - [execution/](execution/) — typecheck / web-export
 - [docs/PRODUCT.md](docs/PRODUCT.md)
