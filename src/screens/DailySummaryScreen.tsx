@@ -11,7 +11,8 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../navigation';
 import { dailySummary, todayIso, type DiameterSummary, type KindSummary } from '../storage';
 import { formatPartDims, partKindLabel, type Project } from '../types';
-import { colors, spacing } from '../theme';
+import { FadeIn } from '../components/FadeIn';
+import { colors, radius, shadow, spacing } from '../theme';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'DailySummary'>;
 
@@ -51,6 +52,7 @@ export function DailySummaryScreen({ route }: Props) {
 
   return (
     <View style={styles.screen}>
+      <FadeIn>
       <View style={styles.hero}>
         <Text style={styles.heroDate}>{date}</Text>
         <Text style={styles.heroTotal}>{data.totalParts}</Text>
@@ -63,6 +65,7 @@ export function DailySummaryScreen({ route }: Props) {
           ))}
         </View>
       </View>
+      </FadeIn>
 
       <Text style={styles.section}>Típus + DM</Text>
       {data.byDiameter.length === 0 ? (
@@ -82,17 +85,19 @@ export function DailySummaryScreen({ route }: Props) {
               ))}
             </View>
           }
-          renderItem={({ item }) => (
-            <View style={styles.row}>
-              <View>
-                <Text style={styles.kind}>{partKindLabel(item.kind)}</Text>
-                <Text style={styles.dm}>{formatPartDims(item)}</Text>
+          renderItem={({ item, index }) => (
+            <FadeIn delay={Math.min(index, 6) * 40}>
+              <View style={styles.row}>
+                <View>
+                  <Text style={styles.kind}>{partKindLabel(item.kind)}</Text>
+                  <Text style={styles.dm}>{formatPartDims(item)}</Text>
+                </View>
+                <View style={styles.rowRight}>
+                  <Text style={styles.count}>{item.count} Stk.</Text>
+                  <Text style={styles.entries}>{item.entryCount} sor</Text>
+                </View>
               </View>
-              <View style={styles.rowRight}>
-                <Text style={styles.count}>{item.count} Stk.</Text>
-                <Text style={styles.entries}>{item.entryCount} sor</Text>
-              </View>
-            </View>
+            </FadeIn>
           )}
         />
       )}
@@ -105,9 +110,10 @@ const styles = StyleSheet.create({
   center: { alignItems: 'center', justifyContent: 'center' },
   hero: {
     backgroundColor: colors.ink,
-    borderRadius: 14,
+    borderRadius: radius.lg,
     padding: spacing.lg,
     marginBottom: spacing.md,
+    ...shadow.bar,
   },
   heroDate: { color: '#B8C2CC', fontWeight: '600' },
   heroTotal: { color: '#fff', fontSize: 48, fontWeight: '800', marginTop: 4 },
@@ -124,7 +130,7 @@ const styles = StyleSheet.create({
   empty: { color: colors.muted, marginTop: 8 },
   row: {
     backgroundColor: colors.surface,
-    borderRadius: 10,
+    borderRadius: radius.md,
     borderWidth: 1,
     borderColor: colors.border,
     padding: spacing.md,
@@ -132,6 +138,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    ...shadow.card,
   },
   kind: { fontSize: 12, fontWeight: '700', color: colors.muted, textTransform: 'uppercase' },
   dm: { fontSize: 17, fontWeight: '700', color: colors.ink, marginTop: 2 },

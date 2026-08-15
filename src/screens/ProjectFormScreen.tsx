@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
 import {
   Alert,
-  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -9,9 +8,11 @@ import {
   View,
 } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
+import { AnimatedPressable } from '../components/AnimatedPressable';
+import { FadeIn } from '../components/FadeIn';
 import type { RootStackParamList } from '../navigation';
 import { getProject, saveProject, todayIso } from '../storage';
-import { colors, spacing } from '../theme';
+import { colors, radius, shadow, spacing } from '../theme';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'ProjectForm'>;
 
@@ -72,16 +73,21 @@ export function ProjectFormScreen({ navigation, route }: Props) {
 
   return (
     <ScrollView style={styles.screen} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-      <Field label="Baustellenort" value={baustellenort} onChangeText={setBaustellenort} placeholder="pl. Wernher-Von-Braun Str." />
-      <Field label="Betreiber" value={betreiber} onChangeText={setBetreiber} placeholder="Üzemeltető" />
-      <Field label="Verlegefirma" value={verlegefirma} onChangeText={setVerlegefirma} placeholder="Fektető cég" />
-      <Field label="Datum (ÉÉÉÉ-HH-NN)" value={date} onChangeText={setDate} placeholder={todayIso()} autoCapitalize="none" />
-      <Field label="Bemerkungen" value={remarks} onChangeText={setRemarks} placeholder="Megjegyzés" multiline />
+      <FadeIn>
+        <Field label="Baustellenort" value={baustellenort} onChangeText={setBaustellenort} placeholder="pl. Wernher-Von-Braun Str." />
+        <Field label="Betreiber" value={betreiber} onChangeText={setBetreiber} placeholder="Üzemeltető" />
+        <Field label="Verlegefirma" value={verlegefirma} onChangeText={setVerlegefirma} placeholder="Fektető cég" />
+        <Field label="Datum (ÉÉÉÉ-HH-NN)" value={date} onChangeText={setDate} placeholder={todayIso()} autoCapitalize="none" />
+        <Field label="Bemerkungen" value={remarks} onChangeText={setRemarks} placeholder="Megjegyzés" multiline />
 
-      <Pressable style={[styles.primaryBtn, saving && { opacity: 0.6 }]} onPress={onSave} disabled={saving}>
-        <Text style={styles.primaryBtnText}>{editing ? 'Mentés' : 'Mentés és muffok'}</Text>
-      </Pressable>
-
+        <AnimatedPressable
+          style={[styles.primaryBtn, saving && { opacity: 0.6 }]}
+          onPress={onSave}
+          disabled={saving}
+        >
+          <Text style={styles.primaryBtnText}>{editing ? 'Mentés' : 'Mentés és muffok'}</Text>
+        </AnimatedPressable>
+      </FadeIn>
     </ScrollView>
   );
 }
@@ -126,9 +132,9 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
     borderWidth: 1,
     borderColor: colors.border,
-    borderRadius: 10,
+    borderRadius: radius.md,
     paddingHorizontal: 14,
-    paddingVertical: 12,
+    paddingVertical: 13,
     fontSize: 16,
     color: colors.ink,
   },
@@ -136,9 +142,10 @@ const styles = StyleSheet.create({
   primaryBtn: {
     backgroundColor: colors.accent,
     paddingVertical: 16,
-    borderRadius: 10,
+    borderRadius: radius.md,
     alignItems: 'center',
     marginTop: spacing.sm,
+    ...shadow.card,
   },
-  primaryBtnText: { color: '#fff', fontWeight: '700', fontSize: 16 },
+  primaryBtnText: { color: '#fff', fontWeight: '800', fontSize: 16 },
 });

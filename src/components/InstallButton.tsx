@@ -8,7 +8,8 @@ import {
   isStandaloneApp,
   subscribeInstallPrompt,
 } from '../pwa';
-import { colors } from '../theme';
+import { AnimatedPressable } from './AnimatedPressable';
+import { colors, radius, shadow } from '../theme';
 
 export function InstallButton() {
   const [open, setOpen] = useState(false);
@@ -63,7 +64,7 @@ export function InstallButton() {
 
   return (
     <>
-      <Pressable
+      <AnimatedPressable
         accessibilityRole="button"
         accessibilityLabel="Alkalmazás letöltése"
         hitSlop={10}
@@ -73,7 +74,7 @@ export function InstallButton() {
         <Text selectable={false} style={styles.headerBtnText}>
           Letöltés
         </Text>
-      </Pressable>
+      </AnimatedPressable>
 
       <Modal visible={open} transparent animationType="fade" onRequestClose={() => setOpen(false)}>
         <View style={styles.backdrop}>
@@ -86,9 +87,9 @@ export function InstallButton() {
             </Text>
 
             {canPrompt ? (
-              <Pressable style={styles.primary} onPress={() => void install()}>
+              <AnimatedPressable style={styles.primary} onPress={() => void install()}>
                 <Text style={styles.primaryText}>Telepítés a telefonra</Text>
-              </Pressable>
+              </AnimatedPressable>
             ) : isIosWeb() ? (
               <Text style={styles.hint}>
                 iPhone: Megosztás gomb → „Főképernyőhöz adás”.
@@ -103,12 +104,12 @@ export function InstallButton() {
             <Text selectable style={styles.link}>
               {url}
             </Text>
-            <Pressable style={styles.secondary} onPress={() => void copyLink()}>
+            <AnimatedPressable style={styles.secondary} onPress={() => void copyLink()}>
               <Text style={styles.secondaryText}>{copied ? 'Link másolva' : 'Link másolása'}</Text>
-            </Pressable>
-            <Pressable style={styles.close} onPress={() => setOpen(false)}>
+            </AnimatedPressable>
+            <AnimatedPressable style={styles.close} onPress={() => setOpen(false)}>
               <Text style={styles.closeText}>Bezárás</Text>
-            </Pressable>
+            </AnimatedPressable>
           </View>
         </View>
       </Modal>
@@ -119,9 +120,9 @@ export function InstallButton() {
 const styles = StyleSheet.create({
   headerBtn: {
     marginRight: 8,
-    paddingHorizontal: 10,
+    paddingHorizontal: 12,
     height: 32,
-    borderRadius: 16,
+    borderRadius: radius.pill,
     backgroundColor: colors.accent,
     alignItems: 'center',
     justifyContent: 'center',
@@ -135,8 +136,9 @@ const styles = StyleSheet.create({
   },
   card: {
     backgroundColor: colors.surface,
-    borderRadius: 14,
-    padding: 18,
+    borderRadius: radius.lg,
+    padding: 20,
+    ...shadow.bar,
   },
   title: { fontSize: 20, fontWeight: '800', color: colors.ink, marginBottom: 8 },
   body: { color: colors.muted, fontSize: 15, lineHeight: 21, marginBottom: 14 },
@@ -146,7 +148,7 @@ const styles = StyleSheet.create({
   primary: {
     backgroundColor: colors.accent,
     minHeight: 48,
-    borderRadius: 10,
+    borderRadius: radius.md,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 12,
@@ -154,7 +156,7 @@ const styles = StyleSheet.create({
   primaryText: { color: '#fff', fontWeight: '800', fontSize: 16 },
   secondary: {
     minHeight: 44,
-    borderRadius: 10,
+    borderRadius: radius.md,
     borderWidth: 1,
     borderColor: colors.border,
     alignItems: 'center',

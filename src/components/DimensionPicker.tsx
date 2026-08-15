@@ -1,17 +1,17 @@
 import { createElement, type CSSProperties } from 'react';
 import { Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { COMMON_DIAMETERS } from '../types';
-import { colors } from '../theme';
+import { colors, radius } from '../theme';
 
 const webSelectStyle: CSSProperties = {
   width: '100%',
   height: 52,
   fontSize: 20,
   fontWeight: 800,
-  borderRadius: 8,
+  borderRadius: 14,
   border: '2px solid #C45C26',
-  backgroundColor: '#fff3e6',
-  color: '#1A2332',
+  backgroundColor: '#FFF1E6',
+  color: '#152033',
   padding: '0 10px',
 };
 
@@ -75,7 +75,7 @@ const styles = StyleSheet.create({
     maxHeight: 180,
     borderWidth: 1,
     borderColor: colors.border,
-    borderRadius: 8,
+    borderRadius: radius.md,
     backgroundColor: '#fff',
   },
   row: {

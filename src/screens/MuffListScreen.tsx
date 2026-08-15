@@ -11,7 +11,9 @@ import {
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
+import { AnimatedPressable } from '../components/AnimatedPressable';
 import { DimensionPicker } from '../components/DimensionPicker';
+import { FadeIn } from '../components/FadeIn';
 import type { RootStackParamList } from '../navigation';
 import {
   addPart,
@@ -30,7 +32,7 @@ import {
   type PartKind,
   type Project,
 } from '../types';
-import { colors, spacing } from '../theme';
+import { colors, radius, shadow, spacing } from '../theme';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'MuffList'>;
 
@@ -189,21 +191,23 @@ export function MuffListScreen({ navigation, route }: Props) {
         </View>
       </View>
 
-      <Pressable
+      <AnimatedPressable
         style={styles.editProject}
         onPress={() => navigation.navigate('ProjectForm', { projectId })}
       >
         <Text style={styles.editProjectText}>Projekt adatok</Text>
-      </Pressable>
+      </AnimatedPressable>
 
       <FlatList
         data={parts}
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.listContent}
         ListEmptyComponent={
-          <Text style={styles.empty}>
-            Még nincs tétel. Alul: típus → DM → darabszám → hozzáad. A listán +/−-kal gyorsan módosíthatsz.
-          </Text>
+          <FadeIn>
+            <Text style={styles.empty}>
+              Még nincs tétel. Alul: típus → DM → darabszám → hozzáad. A listán +/−-kal gyorsan módosíthatsz.
+            </Text>
+          </FadeIn>
         }
         renderItem={({ item }) => (
           <View style={styles.row}>
@@ -212,15 +216,15 @@ export function MuffListScreen({ navigation, route }: Props) {
               <Text style={styles.rowDm}>{formatPartDims(item)}</Text>
             </Pressable>
             <View style={styles.stepper}>
-              <Pressable style={styles.stepBtn} onPress={() => void bump(item, -1)}>
+              <AnimatedPressable style={styles.stepBtn} onPress={() => void bump(item, -1)}>
                 <Text style={styles.stepBtnText}>−</Text>
-              </Pressable>
+              </AnimatedPressable>
               <Pressable onPress={() => openEdit(item)}>
                 <Text style={styles.rowCount}>{item.count}</Text>
               </Pressable>
-              <Pressable style={styles.stepBtn} onPress={() => void bump(item, 1)}>
+              <AnimatedPressable style={styles.stepBtn} onPress={() => void bump(item, 1)}>
                 <Text style={styles.stepBtnText}>+</Text>
-              </Pressable>
+              </AnimatedPressable>
             </View>
           </View>
         )}
@@ -233,13 +237,13 @@ export function MuffListScreen({ navigation, route }: Props) {
           {PART_KINDS.map((k) => {
             const active = kind === k.id;
             return (
-              <Pressable
+              <AnimatedPressable
                 key={k.id}
                 style={[styles.kindChip, active && styles.kindChipActive]}
                 onPress={() => setKind(k.id)}
               >
                 <Text style={[styles.kindChipText, active && styles.kindChipTextActive]}>{k.label}</Text>
-              </Pressable>
+              </AnimatedPressable>
             );
           })}
         </View>
@@ -294,18 +298,18 @@ export function MuffListScreen({ navigation, route }: Props) {
           <View style={styles.inputBlockNarrow}>
             <Text style={styles.inputLabel}>Stk.</Text>
             <View style={styles.countStepper}>
-              <Pressable style={styles.stepBtn} onPress={() => setCount((c) => Math.max(1, c - 1))}>
+              <AnimatedPressable style={styles.stepBtn} onPress={() => setCount((c) => Math.max(1, c - 1))}>
                 <Text style={styles.stepBtnText}>−</Text>
-              </Pressable>
+              </AnimatedPressable>
               <Text style={styles.countValue}>{count}</Text>
-              <Pressable style={styles.stepBtn} onPress={() => setCount((c) => c + 1)}>
+              <AnimatedPressable style={styles.stepBtn} onPress={() => setCount((c) => c + 1)}>
                 <Text style={styles.stepBtnText}>+</Text>
-              </Pressable>
+              </AnimatedPressable>
             </View>
           </View>
         </View>
 
-        <Pressable style={[styles.addBtn, adding && { opacity: 0.6 }]} onPress={onAdd} disabled={adding}>
+        <AnimatedPressable style={[styles.addBtn, adding && { opacity: 0.6 }]} onPress={onAdd} disabled={adding}>
           <Text style={styles.addBtnText}>
             + {partKindLabel(kind)} ·{' '}
             {formatKindDims(
@@ -315,7 +319,7 @@ export function MuffListScreen({ navigation, route }: Props) {
             )}{' '}
             · {count} Stk.
           </Text>
-        </Pressable>
+        </AnimatedPressable>
       </View>
 
       <Modal visible={Boolean(editTarget)} transparent animationType="fade">
@@ -326,13 +330,13 @@ export function MuffListScreen({ navigation, route }: Props) {
               {PART_KINDS.map((k) => {
                 const active = editKind === k.id;
                 return (
-                  <Pressable
+                  <AnimatedPressable
                     key={k.id}
                     style={[styles.kindChip, active && styles.kindChipActive]}
                     onPress={() => setEditKind(k.id)}
                   >
                     <Text style={[styles.kindChipText, active && styles.kindChipTextActive]}>{k.short}</Text>
-                  </Pressable>
+                  </AnimatedPressable>
                 );
               })}
             </View>
@@ -354,12 +358,12 @@ export function MuffListScreen({ navigation, route }: Props) {
             <Text style={[styles.inputLabel, { marginTop: 12 }]}>Stk.</Text>
             <TextInput style={styles.input} value={editCount} onChangeText={setEditCount} keyboardType="number-pad" />
             <View style={styles.modalActions}>
-              <Pressable style={styles.modalSecondary} onPress={() => setEditTarget(null)}>
+              <AnimatedPressable style={styles.modalSecondary} onPress={() => setEditTarget(null)}>
                 <Text style={styles.modalSecondaryText}>Mégse</Text>
-              </Pressable>
-              <Pressable style={styles.modalPrimary} onPress={saveEdit}>
+              </AnimatedPressable>
+              <AnimatedPressable style={styles.modalPrimary} onPress={saveEdit}>
                 <Text style={styles.modalPrimaryText}>Mentés</Text>
-              </Pressable>
+              </AnimatedPressable>
             </View>
             {editTarget ? (
               <Pressable
@@ -389,27 +393,29 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    ...shadow.bar,
   },
   summaryLabel: { color: '#fff', fontWeight: '700', fontSize: 16 },
   summaryMeta: { color: '#B8C2CC', marginTop: 2 },
   summaryRight: { alignItems: 'flex-end' },
   summaryCount: { color: '#fff', fontSize: 32, fontWeight: '800', lineHeight: 36 },
   summaryUnit: { color: '#B8C2CC', fontSize: 12 },
-  editProject: { paddingHorizontal: spacing.md, paddingVertical: 8 },
-  editProjectText: { color: colors.accent, fontWeight: '600' },
+  editProject: { paddingHorizontal: spacing.md, paddingVertical: 10 },
+  editProjectText: { color: colors.accent, fontWeight: '700' },
   listContent: { paddingHorizontal: spacing.md, paddingBottom: 8 },
   empty: { color: colors.muted, paddingVertical: 20, lineHeight: 22 },
   row: {
     backgroundColor: colors.surface,
-    borderRadius: 10,
+    borderRadius: radius.md,
     borderWidth: 1,
     borderColor: colors.border,
-    paddingVertical: 8,
-    paddingHorizontal: 10,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
     marginBottom: spacing.sm,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
+    ...shadow.card,
   },
   rowMain: { flex: 1 },
   rowKind: { fontSize: 12, fontWeight: '700', color: colors.muted, textTransform: 'uppercase' },
@@ -418,7 +424,7 @@ const styles = StyleSheet.create({
   stepBtn: {
     width: 40,
     height: 40,
-    borderRadius: 10,
+    borderRadius: radius.sm,
     backgroundColor: colors.chip,
     alignItems: 'center',
     justifyContent: 'center',
@@ -431,6 +437,7 @@ const styles = StyleSheet.create({
     borderTopColor: colors.border,
     padding: spacing.md,
     paddingBottom: spacing.lg,
+    ...shadow.bar,
   },
   quickTitle: { fontWeight: '800', fontSize: 16, color: colors.ink, marginBottom: 8 },
   kindRow: { flexDirection: 'row', gap: 6, marginBottom: 10 },
@@ -438,7 +445,7 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.chip,
     paddingVertical: 12,
-    borderRadius: 10,
+    borderRadius: radius.sm,
     alignItems: 'center',
   },
   kindChipActive: { backgroundColor: colors.accent },
@@ -449,7 +456,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.chip,
     paddingHorizontal: 10,
     paddingVertical: 8,
-    borderRadius: 8,
+    borderRadius: radius.sm,
   },
   chipActive: { backgroundColor: colors.chipActive },
   chipText: { fontWeight: '700', color: colors.ink },
@@ -461,7 +468,7 @@ const styles = StyleSheet.create({
   input: {
     borderWidth: 1,
     borderColor: colors.border,
-    borderRadius: 8,
+    borderRadius: radius.sm,
     paddingHorizontal: 10,
     paddingVertical: 10,
     fontSize: 16,
@@ -472,9 +479,10 @@ const styles = StyleSheet.create({
   countValue: { minWidth: 28, textAlign: 'center', fontSize: 18, fontWeight: '800', color: colors.ink },
   addBtn: {
     backgroundColor: colors.accent,
-    borderRadius: 10,
+    borderRadius: radius.md,
     paddingVertical: 14,
     alignItems: 'center',
+    ...shadow.card,
   },
   addBtnText: { color: '#fff', fontWeight: '800', fontSize: 15, textAlign: 'center' },
   modalBackdrop: {
@@ -485,8 +493,9 @@ const styles = StyleSheet.create({
   },
   modalCard: {
     backgroundColor: colors.surface,
-    borderRadius: 14,
+    borderRadius: radius.lg,
     padding: spacing.md,
+    ...shadow.bar,
   },
   modalTitle: { fontSize: 18, fontWeight: '800', marginBottom: 12, color: colors.ink },
   modalActions: { flexDirection: 'row', gap: 8, marginTop: 16 },
@@ -494,7 +503,7 @@ const styles = StyleSheet.create({
     flex: 1,
     borderWidth: 1,
     borderColor: colors.border,
-    borderRadius: 10,
+    borderRadius: radius.sm,
     paddingVertical: 12,
     alignItems: 'center',
   },
@@ -502,7 +511,7 @@ const styles = StyleSheet.create({
   modalPrimary: {
     flex: 1,
     backgroundColor: colors.accent,
-    borderRadius: 10,
+    borderRadius: radius.sm,
     paddingVertical: 12,
     alignItems: 'center',
   },

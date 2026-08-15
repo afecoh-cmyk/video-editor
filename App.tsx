@@ -28,8 +28,11 @@ export default function App() {
           screenOptions={{
             headerStyle: { backgroundColor: colors.ink },
             headerTintColor: '#fff',
-            headerTitleStyle: { fontWeight: '700' },
+            headerTitleStyle: { fontWeight: '800', fontSize: 18 },
+            headerShadowVisible: false,
             contentStyle: { backgroundColor: colors.bg },
+            animation: 'fade_from_bottom',
+            animationDuration: 240,
             headerRight: () => <InstallButton />,
           }}
         >

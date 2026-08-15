@@ -14,6 +14,7 @@ import {
 import { useFocusEffect } from '@react-navigation/native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import Svg, { Line, Path } from 'react-native-svg';
+import { AnimatedPressable } from '../components/AnimatedPressable';
 import { DimensionPicker } from '../components/DimensionPicker';
 import { InstallButton } from '../components/InstallButton';
 import type { RootStackParamList } from '../navigation';
@@ -46,7 +47,7 @@ import {
   type PartEntry,
   type PartKind,
 } from '../types';
-import { colors, spacing } from '../theme';
+import { colors, radius, shadow, spacing } from '../theme';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'DrawingBoard'>;
 type Mode = 'pan' | 'draw' | 'mark' | 'pipe';
@@ -537,29 +538,29 @@ export function DrawingBoardScreen({ navigation, route }: Props) {
         <ModeButton active={mode === 'draw'} label="✎" onPress={() => changeMode('draw')} />
         <ModeButton active={mode === 'mark'} label="＋ X" onPress={() => changeMode('mark')} />
         <ModeButton active={mode === 'pipe'} label="║" onPress={() => changeMode('pipe')} />
-        <Pressable
+        <AnimatedPressable
           style={[styles.toolButton, openMarkers.length > 0 && styles.batchButton]}
           onPress={openConvert}
         >
           <Text style={[styles.toolText, openMarkers.length > 0 && styles.batchButtonText]}>
             M {openMarkers.length}
           </Text>
-        </Pressable>
-        <Pressable style={[styles.toolButton, styles.toolButtonCompact]} onPress={() => zoomBy(1 / 1.4)}>
+        </AnimatedPressable>
+        <AnimatedPressable style={[styles.toolButton, styles.toolButtonCompact]} onPress={() => zoomBy(1 / 1.4)}>
           <Text style={styles.toolText}>−</Text>
-        </Pressable>
-        <Pressable
+        </AnimatedPressable>
+        <AnimatedPressable
           style={[styles.toolButton, styles.toolButtonCompact]}
           onPress={() => updateView({ scale: 1, offsetX: 0, offsetY: 0 })}
         >
           <Text style={styles.toolText}>
             {Math.abs(view.scale - 1) < 0.05 ? '1:1' : `${view.scale.toFixed(1)}×`}
           </Text>
-        </Pressable>
-        <Pressable style={[styles.toolButton, styles.toolButtonCompact]} onPress={() => zoomBy(1.4)}>
+        </AnimatedPressable>
+        <AnimatedPressable style={[styles.toolButton, styles.toolButtonCompact]} onPress={() => zoomBy(1.4)}>
           <Text style={styles.toolText}>＋</Text>
-        </Pressable>
-        <Pressable
+        </AnimatedPressable>
+        <AnimatedPressable
           style={styles.toolButton}
           onPress={async () => {
             await undoCanvasAction(projectId);
@@ -567,22 +568,22 @@ export function DrawingBoardScreen({ navigation, route }: Props) {
           }}
         >
           <Text style={styles.toolText}>↶</Text>
-        </Pressable>
+        </AnimatedPressable>
       </View>
 
       {mode === 'pipe' && selectedPairId ? (
         <View style={styles.spacingBar}>
           <Text style={styles.spacingLabel}>VL–RL távolság</Text>
-          <Pressable style={styles.spacingButton} onPress={() => void changePipeSpacing(-4)}>
+          <AnimatedPressable style={styles.spacingButton} onPress={() => void changePipeSpacing(-4)}>
             <Text style={styles.spacingButtonText}>−</Text>
-          </Pressable>
+          </AnimatedPressable>
           <Text style={styles.spacingValue}>{pipeSpacing} px</Text>
-          <Pressable style={styles.spacingButton} onPress={() => void changePipeSpacing(4)}>
+          <AnimatedPressable style={styles.spacingButton} onPress={() => void changePipeSpacing(4)}>
             <Text style={styles.spacingButtonText}>＋</Text>
-          </Pressable>
-          <Pressable onPress={() => setSelectedPairId(null)}>
+          </AnimatedPressable>
+          <AnimatedPressable onPress={() => setSelectedPairId(null)}>
             <Text style={styles.spacingDone}>Kész</Text>
-          </Pressable>
+          </AnimatedPressable>
         </View>
       ) : null}
 
@@ -713,9 +714,9 @@ export function DrawingBoardScreen({ navigation, route }: Props) {
                 ? 'Cső kijelölve · állítsd a VL–RL távolságot'
                 : 'Cső mód · koppints egy vonalpárra'}
         </Text>
-        <Pressable onPress={() => navigation.navigate('MuffList', { projectId })}>
+        <AnimatedPressable onPress={() => navigation.navigate('MuffList', { projectId })}>
           <Text style={styles.listLink}>Lista ({parts.length})</Text>
-        </Pressable>
+        </AnimatedPressable>
       </View>
 
       <Modal
@@ -727,7 +728,7 @@ export function DrawingBoardScreen({ navigation, route }: Props) {
         <Pressable style={styles.menuBackdrop} onPress={() => setProjectMenuOpen(false)}>
           <View style={styles.projectMenu}>
             <Text style={styles.projectMenuTitle}>Projekt menü</Text>
-            <Pressable
+            <AnimatedPressable
               style={styles.menuRow}
               onPress={() => {
                 setProjectMenuOpen(false);
@@ -735,13 +736,13 @@ export function DrawingBoardScreen({ navigation, route }: Props) {
               }}
             >
               <Text style={styles.menuRowText}>Projekt szerkesztése</Text>
-            </Pressable>
-            <Pressable style={styles.menuRow} onPress={confirmProjectDelete}>
+            </AnimatedPressable>
+            <AnimatedPressable style={styles.menuRow} onPress={confirmProjectDelete}>
               <Text style={styles.menuDeleteText}>Projekt törlése</Text>
-            </Pressable>
-            <Pressable style={styles.menuCancel} onPress={() => setProjectMenuOpen(false)}>
+            </AnimatedPressable>
+            <AnimatedPressable style={styles.menuCancel} onPress={() => setProjectMenuOpen(false)}>
               <Text style={styles.menuCancelText}>Mégse</Text>
-            </Pressable>
+            </AnimatedPressable>
           </View>
         </Pressable>
       </Modal>
@@ -759,10 +760,10 @@ export function DrawingBoardScreen({ navigation, route }: Props) {
               A projekt, a teljes rajz és az összes muff végleg törlődik.
             </Text>
             <View style={styles.confirmActions}>
-              <Pressable style={styles.confirmCancel} onPress={() => setDeleteConfirmOpen(false)}>
+              <AnimatedPressable style={styles.confirmCancel} onPress={() => setDeleteConfirmOpen(false)}>
                 <Text style={styles.confirmCancelText}>Mégse</Text>
-              </Pressable>
-              <Pressable
+              </AnimatedPressable>
+              <AnimatedPressable
                 style={styles.confirmDelete}
                 onPress={async () => {
                   setDeleteConfirmOpen(false);
@@ -771,7 +772,7 @@ export function DrawingBoardScreen({ navigation, route }: Props) {
                 }}
               >
                 <Text style={styles.confirmDeleteText}>Projekt törlése</Text>
-              </Pressable>
+              </AnimatedPressable>
             </View>
           </View>
         </View>
@@ -781,6 +782,7 @@ export function DrawingBoardScreen({ navigation, route }: Props) {
         <View style={styles.convertOverlay} pointerEvents="box-none">
           <Pressable style={styles.backdropDismiss} onPress={() => setModalOpen(false)} />
           <View style={styles.sheet} pointerEvents="auto">
+            <View style={styles.sheetHandle} />
             <ScrollView
               keyboardShouldPersistTaps="always"
               nestedScrollEnabled
@@ -796,7 +798,7 @@ export function DrawingBoardScreen({ navigation, route }: Props) {
 
               <View style={styles.chips}>
                 {PART_KINDS.map((item) => (
-                  <Pressable
+                  <AnimatedPressable
                     key={item.id}
                     style={[styles.chip, kind === item.id && styles.chipActive]}
                     onPress={() => setKind(item.id)}
@@ -804,7 +806,7 @@ export function DrawingBoardScreen({ navigation, route }: Props) {
                     <Text style={[styles.chipText, kind === item.id && styles.chipTextActive]}>
                       {item.label}
                     </Text>
-                  </Pressable>
+                  </AnimatedPressable>
                 ))}
               </View>
 
@@ -826,12 +828,12 @@ export function DrawingBoardScreen({ navigation, route }: Props) {
                 />
               ) : null}
 
-              <Pressable style={styles.saveButton} onPress={saveConversion}>
+              <AnimatedPressable style={styles.saveButton} onPress={saveConversion}>
                 <Text style={styles.saveText}>
                   Átalakítás · {partKindLabel(kind)} · {formatKindDims(kind, diameter, diameterTo)} ·{' '}
                   {openMarkers.length} db
                 </Text>
-              </Pressable>
+              </AnimatedPressable>
             </ScrollView>
           </View>
         </View>
@@ -850,9 +852,9 @@ function ModeButton({
   onPress: () => void;
 }) {
   return (
-    <Pressable style={[styles.toolButton, active && styles.toolButtonActive]} onPress={onPress}>
+    <AnimatedPressable style={[styles.toolButton, active && styles.toolButtonActive]} onPress={onPress}>
       <Text style={[styles.toolText, active && styles.toolTextActive]}>{label}</Text>
-    </Pressable>
+    </AnimatedPressable>
   );
 }
 
@@ -883,17 +885,18 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'center',
     flexWrap: 'wrap',
-    gap: 4,
-    padding: 4,
+    gap: 5,
+    padding: 6,
     backgroundColor: colors.surface,
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
+    ...shadow.bar,
   },
   toolButton: {
     width: 40,
-    height: 34,
+    height: 36,
     paddingHorizontal: 3,
-    borderRadius: 7,
+    borderRadius: radius.sm,
     backgroundColor: colors.bg,
     justifyContent: 'center',
     alignItems: 'center',
@@ -918,7 +921,7 @@ const styles = StyleSheet.create({
   spacingButton: {
     width: 38,
     height: 36,
-    borderRadius: 8,
+    borderRadius: radius.sm,
     backgroundColor: colors.accent,
     alignItems: 'center',
     justifyContent: 'center',
@@ -930,10 +933,11 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#fff',
     margin: 6,
-    borderRadius: 8,
+    borderRadius: radius.md,
     overflow: 'hidden',
     borderWidth: 1,
     borderColor: '#c6d0d5',
+    ...shadow.card,
   },
   help: {
     position: 'absolute',
@@ -986,12 +990,9 @@ const styles = StyleSheet.create({
   projectMenu: {
     width: 250,
     backgroundColor: colors.surface,
-    borderRadius: 12,
+    borderRadius: radius.md,
     padding: 8,
-    shadowColor: '#000',
-    shadowOpacity: 0.22,
-    shadowRadius: 10,
-    elevation: 8,
+    ...shadow.bar,
   },
   projectMenuTitle: {
     color: colors.muted,
@@ -1013,8 +1014,9 @@ const styles = StyleSheet.create({
   },
   confirmCard: {
     backgroundColor: colors.surface,
-    borderRadius: 16,
+    borderRadius: radius.lg,
     padding: spacing.lg,
+    ...shadow.bar,
   },
   confirmTitle: { color: colors.ink, fontSize: 22, fontWeight: '800' },
   confirmText: { color: colors.muted, fontSize: 15, lineHeight: 21, marginTop: 8 },
@@ -1022,7 +1024,7 @@ const styles = StyleSheet.create({
   confirmCancel: {
     flex: 1,
     paddingVertical: 14,
-    borderRadius: 10,
+    borderRadius: radius.sm,
     backgroundColor: colors.bg,
     alignItems: 'center',
   },
@@ -1030,7 +1032,7 @@ const styles = StyleSheet.create({
   confirmDelete: {
     flex: 1.4,
     paddingVertical: 14,
-    borderRadius: 10,
+    borderRadius: radius.sm,
     backgroundColor: colors.danger,
     alignItems: 'center',
   },
@@ -1058,20 +1060,28 @@ const styles = StyleSheet.create({
   },
   sheet: {
     backgroundColor: colors.surface,
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
+    borderTopLeftRadius: radius.lg,
+    borderTopRightRadius: radius.lg,
     padding: spacing.md,
     paddingBottom: spacing.xl,
     maxHeight: '88%',
     zIndex: 2,
-    elevation: 8,
+    ...shadow.bar,
+  },
+  sheetHandle: {
+    alignSelf: 'center',
+    width: 42,
+    height: 4,
+    borderRadius: radius.pill,
+    backgroundColor: colors.border,
+    marginBottom: 10,
   },
   sheetScroll: { maxHeight: 520 },
   sheetTitle: { fontSize: 20, fontWeight: '800', color: colors.ink, marginBottom: 10 },
   selectedSummary: {
     minHeight: 52,
-    borderRadius: 10,
-    backgroundColor: '#fff3e6',
+    borderRadius: radius.md,
+    backgroundColor: colors.accentSoft,
     borderWidth: 2,
     borderColor: colors.accent,
     paddingHorizontal: 12,
@@ -1086,7 +1096,7 @@ const styles = StyleSheet.create({
   chip: {
     flex: 1,
     paddingVertical: 12,
-    borderRadius: 9,
+    borderRadius: radius.sm,
     borderWidth: 1,
     borderColor: colors.border,
     alignItems: 'center',
@@ -1143,8 +1153,9 @@ const styles = StyleSheet.create({
   saveButton: {
     backgroundColor: colors.accent,
     paddingVertical: 15,
-    borderRadius: 10,
+    borderRadius: radius.md,
     alignItems: 'center',
+    ...shadow.card,
   },
   saveText: { color: '#fff', fontSize: 17, fontWeight: '800' },
 });
