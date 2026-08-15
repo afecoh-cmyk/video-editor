@@ -47,6 +47,7 @@ Nincs Montagebogen a választóban.
    - Az adatlapon a **Kijelölt X mérete** sor mindig mutatja a típust + DM-et.
    - A DM választó weben natív lista; Reduzir / Reduzirmuffe: DM von + DM bis, Abzweignél Haupt DM + Abzweig DM. Mindkét szám látszik és mentődik.
    - A rajzon a Reduzir / Reduzirmuffe `315→250`, az Abzweig / Montageabzweig `315/200` feliratként jelenik meg. Hegesztett rövidítés: BM / MM / RM / EM / MA.
+   - A kész címkék a VL/RL pár **külső oldalán** ülnek, a csövön csak egy pont marad; ha még így is ütköznének, szétcsúsznak. A cső így olvasható marad sűrű szakaszon is.
 8. Mentéskor az összes aktuális X külön 1 db PartEntry lesz. A később lerakott X-ek új csoportot alkotnak.
 9. Drótmérés ezen az adatlapon nincs.
 

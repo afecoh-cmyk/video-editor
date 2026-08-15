@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useMemo, useRef, useState, Fragment } from 'react';
 import {
   Alert,
   Modal,
@@ -25,6 +25,7 @@ import {
   simplifyPipePath,
   snapPipePathAngles,
 } from '../pipeGeometry';
+import { layoutCanvasMarkers } from '../markerLayout';
 import {
   addCanvasMarker,
   addCanvasStrokePair,
@@ -39,12 +40,10 @@ import {
 } from '../storage';
 import {
   formatKindDims,
-  formatPartDims,
   kindNeedsSecondDm,
   kindPrimaryDmLabel,
   kindSecondDmLabel,
   partKindLabel,
-  partKindShort,
   type CanvasMarker,
   type CanvasPoint,
   type CanvasStroke,
@@ -354,6 +353,10 @@ export function DrawingBoardScreen({ navigation, route }: Props) {
 
   const partsById = useMemo(() => new Map(parts.map((p) => [p.id, p])), [parts]);
   const openMarkers = markers.filter((m) => !m.partId);
+  const laidOutMarkers = useMemo(
+    () => layoutCanvasMarkers(markers, strokes, partsById, size, view),
+    [markers, strokes, partsById, size, view]
+  );
 
   const pathFor = (points: CanvasPoint[]) =>
     points
@@ -653,47 +656,70 @@ export function DrawingBoardScreen({ navigation, route }: Props) {
                 fill="none"
               />
             ))}
+          {laidOutMarkers
+            .filter((item) => item.caption)
+            .map((item) => (
+              <Line
+                key={`lead-${item.id}`}
+                x1={item.pipeX}
+                y1={item.pipeY}
+                x2={item.labelX + item.width / 2}
+                y2={item.labelY + item.height / 2}
+                stroke={colors.total}
+                strokeWidth={1}
+                opacity={0.4}
+              />
+            ))}
         </Svg>
 
-        {markers.map((marker) => {
-          const part = marker.partId ? partsById.get(marker.partId) : null;
-          const twoDims = part ? kindNeedsSecondDm(part.kind) : false;
-          const markerWidth = part ? (twoDims ? 64 : 44) : 18;
-          const markerHeight = part ? 28 : 18;
-          return (
+        {laidOutMarkers.map((item) =>
+          item.caption ? (
+            <Fragment key={item.id}>
+              <View
+                pointerEvents="none"
+                style={[
+                  styles.pipeTick,
+                  { left: item.pipeX - 3.5, top: item.pipeY - 3.5 },
+                ]}
+              />
+              <View
+                pointerEvents="none"
+                style={[
+                  styles.completedMarker,
+                  {
+                    left: item.labelX,
+                    top: item.labelY,
+                    width: item.width,
+                    height: item.height,
+                  },
+                ]}
+              >
+                <Text selectable={false} numberOfLines={1} style={styles.completedCaption}>
+                  {item.caption}
+                </Text>
+              </View>
+            </Fragment>
+          ) : (
             <View
-              key={marker.id}
+              key={item.id}
               pointerEvents="none"
               style={[
                 styles.marker,
-                part ? styles.completedMarker : styles.openMarker,
+                styles.openMarker,
                 {
-                  width: markerWidth,
-                  height: markerHeight,
-                  left:
-                    marker.x * size.width * view.scale +
-                    view.offsetX -
-                    markerWidth / 2,
-                  top:
-                    marker.y * size.height * view.scale +
-                    view.offsetY -
-                    markerHeight / 2,
+                  width: item.width,
+                  height: item.height,
+                  left: item.labelX,
+                  top: item.labelY,
                 },
               ]}
             >
-              {part ? (
-                <>
-                  <Text selectable={false} style={styles.completedType}>{partKindShort(part.kind)}</Text>
-                  <Text selectable={false} style={styles.completedDm}>
-                    {formatPartDims(part).replace('DM ', '')}
-                  </Text>
-                </>
-              ) : (
-                <Text selectable={false} style={styles.xText}>×</Text>
-              )}
+              <Text selectable={false} style={styles.xText}>
+                ×
+              </Text>
             </View>
-          );
-        })}
+          )
+        )}
 
         {markers.length === 0 && strokes.length === 0 ? (
           <View pointerEvents="none" style={styles.help}>
@@ -950,15 +976,27 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     borderColor: colors.danger,
   },
-  completedMarker: {
-    borderRadius: 6,
-    borderWidth: 1.5,
-    borderColor: colors.total,
-    backgroundColor: '#eaf8f0',
+  pipeTick: {
+    position: 'absolute',
+    width: 7,
+    height: 7,
+    borderRadius: 4,
+    backgroundColor: colors.total,
+    borderWidth: 1,
+    borderColor: '#fff',
   },
+  completedMarker: {
+    position: 'absolute',
+    borderRadius: 5,
+    borderWidth: 1,
+    borderColor: colors.total,
+    backgroundColor: 'rgba(234,248,240,0.94)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 3,
+  },
+  completedCaption: { color: colors.ink, fontSize: 10, fontWeight: '800', lineHeight: 12 },
   xText: { color: colors.danger, fontSize: 13, fontWeight: '900', lineHeight: 14 },
-  completedType: { color: colors.total, fontSize: 7, fontWeight: '800', lineHeight: 8 },
-  completedDm: { color: colors.ink, fontSize: 10, fontWeight: '900', lineHeight: 11 },
   status: {
     minHeight: 48,
     paddingHorizontal: spacing.md,
