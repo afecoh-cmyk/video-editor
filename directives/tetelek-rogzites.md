@@ -21,8 +21,8 @@ A szerelő telefonon gyorsan felírja és módosítja:
 2. A rajzlap kockás; **két ujjal nagyítható és mozgatható**, így nagy csőrendszer is elfér.
 3. Egy rajzmozdulat automatikusan **két párhuzamos vonalat** készít: **VL / Vorlauf** (meleg előremenő, folytonos) + **RL / Rücklauf** (visszatérő, szaggatott).
 4. **Rajz** az alapmód; az **X módot külön aktiválni kell**.
-5. X módban a koppintás a legközelebbi megrajzolt VL/RL vonalra illeszti az X-et; vonal mellé nem menthető.
-6. Kijelöl módban az X-ek egyenként választhatók.
+5. X módban csak rövid, legfeljebb 10 px-t mozduló koppintás rak le X-et; húzás/pinch után nem. Az X a legközelebbi megrajzolt VL/RL vonalra illeszkedik.
+6. Kijelöl módban az X-ek egyenként választhatók; pinch után 400 ms-ig nem történhet véletlen kijelölés.
 7. Hosszú nyomás a rajzlapon → közös típus + DM adatlap.
 8. Minden kijelölt X külön 1 db PartEntry lesz; az összesítő csoportosítja.
 9. Drótmérés ezen az adatlapon nincs.

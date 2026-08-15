@@ -84,11 +84,14 @@ export function DrawingBoardScreen({ navigation, route }: Props) {
   const [diameterTo, setDiameterTo] = useState('250');
   const [view, setView] = useState<ViewTransform>({ scale: 1, offsetX: 0, offsetY: 0 });
   const drawingRef = useRef<CanvasPoint[]>([]);
-  const markerTapRef = useRef<{ x: number; y: number } | null>(null);
+  const markerTapRef = useRef<{ x: number; y: number; moved: boolean } | null>(null);
   const markerPlacementRef = useRef<(x: number, y: number) => Promise<void>>(async () => {});
+  const suppressTapUntilRef = useRef(0);
+  const lastMarkerAtRef = useRef(0);
   const viewRef = useRef(view);
   const pinchRef = useRef<{
     distance: number;
+    startScale: number;
     worldX: number;
     worldY: number;
   } | null>(null);
@@ -150,9 +153,12 @@ export function DrawingBoardScreen({ navigation, route }: Props) {
       const midY = (a.locationY + b.locationY) / 2;
       pinchRef.current = {
         distance: Math.hypot(b.locationX - a.locationX, b.locationY - a.locationY),
+        startScale: viewRef.current.scale,
         worldX: (midX - viewRef.current.offsetX) / viewRef.current.scale,
         worldY: (midY - viewRef.current.offsetY) / viewRef.current.scale,
       };
+      markerTapRef.current = null;
+      suppressTapUntilRef.current = Date.now() + 400;
       drawingRef.current = [];
       setDraftPoints([]);
     },
@@ -178,6 +184,7 @@ export function DrawingBoardScreen({ navigation, route }: Props) {
             markerTapRef.current = {
               x: event.nativeEvent.locationX,
               y: event.nativeEvent.locationY,
+              moved: false,
             };
             return;
           }
@@ -197,20 +204,25 @@ export function DrawingBoardScreen({ navigation, route }: Props) {
             const midX = (a.locationX + b.locationX) / 2;
             const midY = (a.locationY + b.locationY) / 2;
             const distance = Math.hypot(b.locationX - a.locationX, b.locationY - a.locationY);
+            const rawRatio = distance / Math.max(1, pinch.distance);
+            const dampedRatio = 1 + (rawRatio - 1) * 0.55;
             const scale = Math.max(
-              0.7,
-              Math.min(3, viewRef.current.scale * (distance / Math.max(1, pinch.distance)))
+              0.8,
+              Math.min(2.2, pinch.startScale * dampedRatio)
             );
             updateView({
               scale,
               offsetX: midX - pinch.worldX * scale,
               offsetY: midY - pinch.worldY * scale,
             });
-            pinchRef.current = {
-              distance,
-              worldX: (midX - viewRef.current.offsetX) / viewRef.current.scale,
-              worldY: (midY - viewRef.current.offsetY) / viewRef.current.scale,
-            };
+            return;
+          }
+          if (mode === 'mark' && markerTapRef.current) {
+            const movement = Math.hypot(
+              event.nativeEvent.locationX - markerTapRef.current.x,
+              event.nativeEvent.locationY - markerTapRef.current.y
+            );
+            if (movement > 10) markerTapRef.current.moved = true;
             return;
           }
           if (pinchRef.current || mode !== 'draw') return;
@@ -229,7 +241,9 @@ export function DrawingBoardScreen({ navigation, route }: Props) {
           if (mode === 'mark') {
             const tap = markerTapRef.current;
             markerTapRef.current = null;
-            if (tap) await markerPlacementRef.current(tap.x, tap.y);
+            if (tap && !tap.moved && Date.now() >= suppressTapUntilRef.current) {
+              await markerPlacementRef.current(tap.x, tap.y);
+            }
             return;
           }
           const points = drawingRef.current;
@@ -299,18 +313,20 @@ export function DrawingBoardScreen({ navigation, route }: Props) {
   };
 
   const placeMarkerAt = async (screenX: number, screenY: number) => {
+    if (Date.now() - lastMarkerAtRef.current < 300) return;
     const snapped = nearestPointOnPipe(screenX, screenY);
     if (!snapped) {
       Alert.alert('Nincs csővonal a közelben', 'Koppints közelebb a megrajzolt VL vagy RL vonalhoz.');
       return;
     }
     await addCanvasMarker(projectId, snapped);
+    lastMarkerAtRef.current = Date.now();
     await load();
   };
   markerPlacementRef.current = placeMarkerAt;
 
   const toggleMarker = (marker: CanvasMarker) => {
-    if (mode !== 'select' || marker.partId) return;
+    if (mode !== 'select' || marker.partId || Date.now() < suppressTapUntilRef.current) return;
     setSelected((current) => {
       const next = new Set(current);
       if (next.has(marker.id)) next.delete(marker.id);
@@ -359,7 +375,7 @@ export function DrawingBoardScreen({ navigation, route }: Props) {
   };
 
   const gridSpacing = 28 * view.scale;
-  const symbolScale = Math.max(0.75, Math.min(1.4, Math.sqrt(view.scale)));
+  const symbolScale = Math.max(0.68, Math.min(1.05, Math.sqrt(view.scale) * 0.82));
   const drawingWidth = Math.max(2, Math.min(4.5, 3 * Math.sqrt(view.scale)));
   const gridStartX = ((view.offsetX % gridSpacing) + gridSpacing) % gridSpacing;
   const gridStartY = ((view.offsetY % gridSpacing) + gridSpacing) % gridSpacing;
@@ -475,8 +491,8 @@ export function DrawingBoardScreen({ navigation, route }: Props) {
               style={[
                 styles.marker,
                 {
-                  left: marker.x * size.width * view.scale + view.offsetX - (part ? 32 : 20),
-                  top: marker.y * size.height * view.scale + view.offsetY - 20,
+                  left: marker.x * size.width * view.scale + view.offsetX - (part ? 26 : 14),
+                  top: marker.y * size.height * view.scale + view.offsetY - (part ? 17 : 14),
                 },
                 part && styles.completedMarker,
                 isSelected && styles.selectedMarker,
@@ -517,7 +533,7 @@ export function DrawingBoardScreen({ navigation, route }: Props) {
           {mode === 'draw'
             ? 'Rajzolj egyszer — VL + RL együtt készül · 2 ujjal zoom'
             : mode === 'mark'
-              ? 'X mód aktív — az X a legközelebbi csővonalra ugrik'
+              ? 'X mód — rövid koppintás a vonalnál (húzás nem rak le X-et)'
               : selected.size
                 ? `${selected.size} X kijelölve — nyomd hosszan a rajzlapot`
                 : 'Koppints egyenként az X-ekre · 2 ujjal nagyítás'}
@@ -726,11 +742,11 @@ const styles = StyleSheet.create({
   helpText: { color: '#9ba6ab', textAlign: 'center', fontSize: 15, lineHeight: 21 },
   marker: {
     position: 'absolute',
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
     backgroundColor: '#fff',
-    borderWidth: 3,
+    borderWidth: 2,
     borderColor: colors.danger,
     alignItems: 'center',
     justifyContent: 'center',
@@ -744,15 +760,16 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff3e6',
   },
   completedMarker: {
-    width: 64,
+    width: 52,
+    height: 34,
     borderRadius: 8,
     borderWidth: 2,
     borderColor: colors.total,
     backgroundColor: '#eaf8f0',
   },
-  xText: { color: colors.danger, fontSize: 32, fontWeight: '900', lineHeight: 34 },
-  completedType: { color: colors.total, fontSize: 10, fontWeight: '800' },
-  completedDm: { color: colors.ink, fontSize: 11, fontWeight: '800' },
+  xText: { color: colors.danger, fontSize: 22, fontWeight: '900', lineHeight: 24 },
+  completedType: { color: colors.total, fontSize: 9, fontWeight: '800' },
+  completedDm: { color: colors.ink, fontSize: 10, fontWeight: '800' },
   status: {
     minHeight: 48,
     paddingHorizontal: spacing.md,
