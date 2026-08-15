@@ -34,9 +34,9 @@ A szerelő telefonon gyorsan felírja és módosítja:
 5. X módban csak rövid, legfeljebb 10 px-t mozduló koppintás rak le X-et; húzás/pinch után nem. A koppintásnak a VL/RL vonaltól legfeljebb kb. **3 mm-re (12 px)** kell lennie, különben nem kerül le X.
 6. Minden még át nem alakított X automatikusan az **aktuális csoport** része; nincs külön kijelölési mód.
 7. Hosszú nyomás X módban vagy a `Muff (N)` gomb → közös típus + DM adatlap.
-   - Az adatlapon a **Kijelölt X mérete** sor mindig mutatja a típust + DM-et (muffénál is, pl. Muffe · DM 315).
-   - A DM választó weben natív lista (a kiválasztott szám mindig látszik); a mentés a ténylegesen kiválasztott DM-et írja az X-ekre.
-   - Reduzir/Abzweig esetén a második DM ugyanilyen külön menüből választható.
+   - Az adatlapon a **Kijelölt X mérete** sor mindig mutatja a típust + DM-et.
+   - A DM választó weben natív lista; Reduzirnál DM von + DM bis, Abzweignél Haupt DM + Abzweig DM. Mindkét szám látszik és mentődik.
+   - A rajzon a Reduzir `315→250`, az Abzweig `315/200` feliratként jelenik meg.
 8. Mentéskor az összes aktuális X külön 1 db PartEntry lesz. A később lerakott X-ek új csoportot alkotnak.
 9. Drótmérés ezen az adatlapon nincs.
 

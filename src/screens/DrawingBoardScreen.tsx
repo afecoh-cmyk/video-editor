@@ -1,4 +1,4 @@
-import { createElement, useCallback, useMemo, useRef, useState, type CSSProperties } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import {
   Alert,
   Modal,
@@ -14,6 +14,7 @@ import {
 import { useFocusEffect } from '@react-navigation/native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import Svg, { Line, Path } from 'react-native-svg';
+import { DimensionPicker } from '../components/DimensionPicker';
 import type { RootStackParamList } from '../navigation';
 import {
   makePipePair,
@@ -34,8 +35,8 @@ import {
   updateCanvasStrokePair,
 } from '../storage';
 import {
-  COMMON_DIAMETERS,
   PART_KINDS,
+  formatKindDims,
   formatPartDims,
   partKindLabel,
   type CanvasMarker,
@@ -68,8 +69,10 @@ export function DrawingBoardScreen({ navigation, route }: Props) {
   const [diameterTo, setDiameterTo] = useState('250');
   const diameterRef = useRef(diameter);
   const diameterToRef = useRef(diameterTo);
+  const kindRef = useRef(kind);
   diameterRef.current = diameter;
   diameterToRef.current = diameterTo;
+  kindRef.current = kind;
   const [view, setView] = useState<ViewTransform>({ scale: 1, offsetX: 0, offsetY: 0 });
   const drawingRef = useRef<CanvasPoint[]>([]);
   const markerTapRef = useRef<{
@@ -458,7 +461,8 @@ export function DrawingBoardScreen({ navigation, route }: Props) {
   const saveConversion = async () => {
     const dm = Number(diameterRef.current);
     const dmTo = Number(diameterToRef.current);
-    const needsSecond = kind !== 'muffe';
+    const nextKind = kindRef.current;
+    const needsSecond = nextKind !== 'muffe';
     if (!Number.isFinite(dm) || dm <= 0 || (needsSecond && (!Number.isFinite(dmTo) || dmTo <= 0))) {
       Alert.alert('Hibás DM', 'Adj meg érvényes átmérőt.');
       return;
@@ -466,7 +470,7 @@ export function DrawingBoardScreen({ navigation, route }: Props) {
     await convertMarkersToParts({
       projectId,
       markerIds: openMarkers.map((marker) => marker.id),
-      kind,
+      kind: nextKind,
       diameterMm: dm,
       diameterToMm: needsSecond ? dmTo : null,
     });
@@ -618,8 +622,9 @@ export function DrawingBoardScreen({ navigation, route }: Props) {
 
         {markers.map((marker) => {
           const part = marker.partId ? partsById.get(marker.partId) : null;
-          const markerWidth = part ? 48 : 18;
-          const markerHeight = part ? 26 : 18;
+          const twoDims = part?.kind === 'reduzir' || part?.kind === 'abzweig';
+          const markerWidth = part ? (twoDims ? 64 : 44) : 18;
+          const markerHeight = part ? 28 : 18;
           return (
             <View
               key={marker.id}
@@ -742,129 +747,65 @@ export function DrawingBoardScreen({ navigation, route }: Props) {
         </View>
       </Modal>
 
-      <Modal
-        visible={modalOpen}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setModalOpen(false)}
-      >
-        <View style={styles.backdrop} pointerEvents="box-none">
+      {modalOpen ? (
+        <View style={styles.convertOverlay} pointerEvents="box-none">
           <Pressable style={styles.backdropDismiss} onPress={() => setModalOpen(false)} />
           <View style={styles.sheet} pointerEvents="auto">
-            <Text style={styles.sheetTitle}>{openMarkers.length} aktuális X átalakítása</Text>
-            <View style={styles.selectedSummary}>
-              <Text style={styles.selectedSummaryLabel}>Kijelölt X mérete</Text>
-              <Text style={styles.selectedSummaryValue}>
-                {partKindLabel(kind)}
-                {' · '}
-                {kind === 'muffe'
-                  ? `DM ${diameter}`
-                  : kind === 'reduzir'
-                    ? `DM ${diameter}→${diameterTo}`
-                    : `DM ${diameter} / Abz. ${diameterTo}`}
-              </Text>
-            </View>
+            <ScrollView
+              keyboardShouldPersistTaps="always"
+              nestedScrollEnabled
+              style={styles.sheetScroll}
+            >
+              <Text style={styles.sheetTitle}>{openMarkers.length} aktuális X átalakítása</Text>
+              <View style={styles.selectedSummary}>
+                <Text style={styles.selectedSummaryLabel}>Kijelölt X mérete</Text>
+                <Text style={styles.selectedSummaryValue}>
+                  {partKindLabel(kind)} · {formatKindDims(kind, diameter, diameterTo)}
+                </Text>
+              </View>
 
-            <View style={styles.chips}>
-              {PART_KINDS.map((item) => (
-                <Pressable
-                  key={item.id}
-                  style={[styles.chip, kind === item.id && styles.chipActive]}
-                  onPress={() => setKind(item.id)}
-                >
-                  <Text style={[styles.chipText, kind === item.id && styles.chipTextActive]}>
-                    {item.label}
-                  </Text>
-                </Pressable>
-              ))}
-            </View>
-
-            <DimensionPicker
-              label={kind === 'abzweig' ? 'Haupt DM' : 'DM'}
-              value={diameter}
-              onSelect={setDiameter}
-            />
-
-            {kind !== 'muffe' ? (
-              <DimensionPicker
-                label={kind === 'reduzir' ? 'Cél DM' : 'Abzweig DM'}
-                value={diameterTo}
-                onSelect={setDiameterTo}
-              />
-            ) : null}
-
-            <Pressable style={styles.saveButton} onPress={saveConversion}>
-              <Text style={styles.saveText}>
-                Átalakítás · {partKindLabel(kind)} · DM {diameter}
-                {kind !== 'muffe' ? ` / ${diameterTo}` : ''} · {openMarkers.length} db
-              </Text>
-            </Pressable>
-          </View>
-        </View>
-      </Modal>
-    </View>
-  );
-}
-
-const webSelectStyle: CSSProperties = {
-  width: '100%',
-  height: 52,
-  fontSize: 22,
-  fontWeight: 800,
-  borderRadius: 8,
-  border: '2px solid #C45C26',
-  backgroundColor: '#fff3e6',
-  color: '#1A2332',
-  padding: '0 12px',
-};
-
-function DimensionPicker({
-  label,
-  value,
-  onSelect,
-}: {
-  label: string;
-  value: string;
-  onSelect: (dm: string) => void;
-}) {
-  return (
-    <View style={styles.dimensionBlock}>
-      <Text style={styles.label}>{label}</Text>
-      {Platform.OS === 'web'
-        ? createElement(
-            'select',
-            {
-              value,
-              onChange: (event: { target: { value: string } }) => onSelect(event.target.value),
-              style: webSelectStyle,
-            },
-            COMMON_DIAMETERS.map((dm) =>
-              createElement('option', { key: dm, value: String(dm) }, `DM ${dm}`)
-            )
-          )
-        : (
-          <View style={styles.dimensionList}>
-            <ScrollView nestedScrollEnabled keyboardShouldPersistTaps="always">
-              {COMMON_DIAMETERS.map((dm) => {
-                const selected = value === String(dm);
-                return (
+              <View style={styles.chips}>
+                {PART_KINDS.map((item) => (
                   <Pressable
-                    key={dm}
-                    style={[styles.dimensionRow, selected && styles.dimensionRowActive]}
-                    onPress={() => onSelect(String(dm))}
+                    key={item.id}
+                    style={[styles.chip, kind === item.id && styles.chipActive]}
+                    onPress={() => setKind(item.id)}
                   >
-                    <Text
-                      style={[styles.dimensionRowText, selected && styles.dimensionRowTextActive]}
-                    >
-                      DM {dm}
+                    <Text style={[styles.chipText, kind === item.id && styles.chipTextActive]}>
+                      {item.label}
                     </Text>
-                    {selected ? <Text style={styles.dimensionCheck}>✓</Text> : null}
                   </Pressable>
-                );
-              })}
+                ))}
+              </View>
+
+              <DimensionPicker
+                name="dm-primary"
+                label={
+                  kind === 'abzweig' ? 'Haupt DM' : kind === 'reduzir' ? 'DM von' : 'DM'
+                }
+                value={diameter}
+                onSelect={setDiameter}
+              />
+
+              {kind !== 'muffe' ? (
+                <DimensionPicker
+                  name="dm-secondary"
+                  label={kind === 'reduzir' ? 'DM bis (→)' : 'Abzweig DM'}
+                  value={diameterTo}
+                  onSelect={setDiameterTo}
+                />
+              ) : null}
+
+              <Pressable style={styles.saveButton} onPress={saveConversion}>
+                <Text style={styles.saveText}>
+                  Átalakítás · {partKindLabel(kind)} · {formatKindDims(kind, diameter, diameterTo)} ·{' '}
+                  {openMarkers.length} db
+                </Text>
+              </Pressable>
             </ScrollView>
           </View>
-        )}
+        </View>
+      ) : null}
     </View>
   );
 }
@@ -990,7 +931,7 @@ const styles = StyleSheet.create({
   },
   xText: { color: colors.danger, fontSize: 13, fontWeight: '900', lineHeight: 14 },
   completedType: { color: colors.total, fontSize: 7, fontWeight: '800', lineHeight: 8 },
-  completedDm: { color: colors.ink, fontSize: 9, fontWeight: '900', lineHeight: 10 },
+  completedDm: { color: colors.ink, fontSize: 10, fontWeight: '900', lineHeight: 11 },
   status: {
     minHeight: 48,
     paddingHorizontal: spacing.md,
@@ -1061,6 +1002,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   confirmDeleteText: { color: '#fff', fontWeight: '800' },
+  convertOverlay: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
+    justifyContent: 'flex-end',
+    zIndex: 20,
+  },
   backdrop: {
     flex: 1,
     justifyContent: 'flex-end',
@@ -1083,6 +1033,7 @@ const styles = StyleSheet.create({
     zIndex: 2,
     elevation: 8,
   },
+  sheetScroll: { maxHeight: 520 },
   sheetTitle: { fontSize: 20, fontWeight: '800', color: colors.ink, marginBottom: 10 },
   selectedSummary: {
     minHeight: 52,
@@ -1096,7 +1047,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   selectedSummaryLabel: { color: colors.accent, fontSize: 12, fontWeight: '800' },
-  selectedSummaryValue: { color: colors.ink, fontSize: 22, fontWeight: '900' },
+  selectedSummaryValue: { color: colors.ink, fontSize: 20, fontWeight: '900' },
   sheetHint: { color: colors.muted, marginTop: 4, marginBottom: spacing.md },
   chips: { flexDirection: 'row', gap: 8, marginBottom: spacing.md },
   chip: {

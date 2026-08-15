@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
+import { DimensionPicker } from '../components/DimensionPicker';
 import type { RootStackParamList } from '../navigation';
 import {
   addPart,
@@ -21,7 +22,7 @@ import {
   updatePart,
 } from '../storage';
 import {
-  COMMON_DIAMETERS,
+  formatKindDims,
   formatPartDims,
   PART_KINDS,
   partKindLabel,
@@ -243,46 +244,26 @@ export function MuffListScreen({ navigation, route }: Props) {
           })}
         </View>
 
-        <Text style={styles.inputLabel}>{needsSecondDm ? (kind === 'reduzir' ? 'DM von' : 'Haupt DM') : 'DM'}</Text>
-        <View style={styles.chips}>
-          {COMMON_DIAMETERS.map((dm) => {
-            const active = !customDm && diameter === dm;
-            return (
-              <Pressable
-                key={dm}
-                style={[styles.chip, active && styles.chipActive]}
-                onPress={() => {
-                  setDiameter(dm);
-                  setCustomDm('');
-                }}
-              >
-                <Text style={[styles.chipText, active && styles.chipTextActive]}>{dm}</Text>
-              </Pressable>
-            );
-          })}
-        </View>
+        <DimensionPicker
+          name="list-dm-primary"
+          label={needsSecondDm ? (kind === 'reduzir' ? 'DM von' : 'Haupt DM') : 'DM'}
+          value={String(diameter)}
+          onSelect={(dm) => {
+            setDiameter(Number(dm));
+            setCustomDm('');
+          }}
+        />
 
         {needsSecondDm ? (
-          <>
-            <Text style={styles.inputLabel}>{kind === 'reduzir' ? 'DM bis (→)' : 'Abzweig DM'}</Text>
-            <View style={styles.chips}>
-              {COMMON_DIAMETERS.map((dm) => {
-                const active = !customDmTo && diameterTo === dm;
-                return (
-                  <Pressable
-                    key={`to-${dm}`}
-                    style={[styles.chip, active && styles.chipActive]}
-                    onPress={() => {
-                      setDiameterTo(dm);
-                      setCustomDmTo('');
-                    }}
-                  >
-                    <Text style={[styles.chipText, active && styles.chipTextActive]}>{dm}</Text>
-                  </Pressable>
-                );
-              })}
-            </View>
-          </>
+          <DimensionPicker
+            name="list-dm-secondary"
+            label={kind === 'reduzir' ? 'DM bis (→)' : 'Abzweig DM'}
+            value={String(diameterTo)}
+            onSelect={(dm) => {
+              setDiameterTo(Number(dm));
+              setCustomDmTo('');
+            }}
+          />
         ) : null}
 
         <View style={styles.inputsRow}>
@@ -327,9 +308,11 @@ export function MuffListScreen({ navigation, route }: Props) {
         <Pressable style={[styles.addBtn, adding && { opacity: 0.6 }]} onPress={onAdd} disabled={adding}>
           <Text style={styles.addBtnText}>
             + {partKindLabel(kind)} ·{' '}
-            {needsSecondDm
-              ? `DM ${Number.isFinite(resolvedDm) ? resolvedDm : '—'}→${Number.isFinite(resolvedDmTo) ? resolvedDmTo : '—'}`
-              : `DM ${Number.isFinite(resolvedDm) ? resolvedDm : '—'}`}{' '}
+            {formatKindDims(
+              kind,
+              Number.isFinite(resolvedDm) ? resolvedDm : '—',
+              Number.isFinite(resolvedDmTo) ? resolvedDmTo : '—'
+            )}{' '}
             · {count} Stk.
           </Text>
         </Pressable>

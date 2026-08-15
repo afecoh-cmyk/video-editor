@@ -121,7 +121,17 @@ export function formatPartDims(entry: Pick<PartEntry, 'kind' | 'diameterMm' | 'd
     return `DM ${entry.diameterMm}→${entry.diameterToMm}`;
   }
   if (entry.kind === 'abzweig' && entry.diameterToMm != null) {
-    return `DM ${entry.diameterMm} / Abz. ${entry.diameterToMm}`;
+    return `DM ${entry.diameterMm}/${entry.diameterToMm}`;
   }
   return `DM ${entry.diameterMm}`;
+}
+
+export function formatKindDims(
+  kind: PartKind,
+  diameterMm: string | number,
+  diameterToMm?: string | number | null
+): string {
+  if (kind === 'reduzir') return `DM ${diameterMm}→${diameterToMm ?? '—'}`;
+  if (kind === 'abzweig') return `DM ${diameterMm}/${diameterToMm ?? '—'}`;
+  return `DM ${diameterMm}`;
 }
