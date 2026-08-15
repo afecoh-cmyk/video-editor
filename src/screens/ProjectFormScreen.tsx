@@ -10,7 +10,7 @@ import {
 } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../navigation';
-import { deleteProject, getProject, saveProject, todayIso } from '../storage';
+import { getProject, saveProject, todayIso } from '../storage';
 import { colors, spacing } from '../theme';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'ProjectForm'>;
@@ -70,21 +70,6 @@ export function ProjectFormScreen({ navigation, route }: Props) {
     }
   };
 
-  const onDelete = () => {
-    if (!projectId) return;
-    Alert.alert('Projekt törlése', 'Biztosan törlöd a projektet és az összes muffot?', [
-      { text: 'Mégse', style: 'cancel' },
-      {
-        text: 'Törlés',
-        style: 'destructive',
-        onPress: async () => {
-          await deleteProject(projectId);
-          navigation.navigate('ProjectList');
-        },
-      },
-    ]);
-  };
-
   return (
     <ScrollView style={styles.screen} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
       <Field label="Baustellenort" value={baustellenort} onChangeText={setBaustellenort} placeholder="pl. Wernher-Von-Braun Str." />
@@ -97,11 +82,6 @@ export function ProjectFormScreen({ navigation, route }: Props) {
         <Text style={styles.primaryBtnText}>{editing ? 'Mentés' : 'Mentés és muffok'}</Text>
       </Pressable>
 
-      {editing ? (
-        <Pressable style={styles.dangerBtn} onPress={onDelete}>
-          <Text style={styles.dangerBtnText}>Projekt törlése</Text>
-        </Pressable>
-      ) : null}
     </ScrollView>
   );
 }
@@ -161,6 +141,4 @@ const styles = StyleSheet.create({
     marginTop: spacing.sm,
   },
   primaryBtnText: { color: '#fff', fontWeight: '700', fontSize: 16 },
-  dangerBtn: { paddingVertical: 16, alignItems: 'center', marginTop: spacing.md },
-  dangerBtnText: { color: colors.danger, fontWeight: '700' },
 });

@@ -19,6 +19,7 @@ import {
   addCanvasMarker,
   addCanvasStroke,
   convertMarkersToParts,
+  deleteProject,
   getCanvas,
   getProject,
   listParts,
@@ -78,7 +79,36 @@ export function DrawingBoardScreen({ navigation, route }: Props) {
       navigation.goBack();
       return;
     }
-    navigation.setOptions({ title: project.baustellenort || 'Rajzlap' });
+    navigation.setOptions({
+      title: project.baustellenort || 'Rajzlap',
+      headerRight: () => (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Projekt törlése"
+          hitSlop={12}
+          onPress={() =>
+            Alert.alert(
+              'Projekt törlése',
+              'Biztosan törlöd a projektet, a rajzot és az összes muffot?',
+              [
+                { text: 'Mégse', style: 'cancel' },
+                {
+                  text: 'Törlés',
+                  style: 'destructive',
+                  onPress: async () => {
+                    await deleteProject(projectId);
+                    navigation.navigate('ProjectList');
+                  },
+                },
+              ]
+            )
+          }
+          style={styles.headerDelete}
+        >
+          <Text selectable={false} style={styles.headerDeleteText}>✕</Text>
+        </Pressable>
+      ),
+    });
     setMarkers(canvas.markers);
     setStrokes(canvas.strokes);
     setParts(projectParts);
@@ -451,11 +481,13 @@ export function DrawingBoardScreen({ navigation, route }: Props) {
             >
               {part ? (
                 <>
-                  <Text style={styles.completedType}>{partKindLabel(part.kind)}</Text>
-                  <Text style={styles.completedDm}>{formatPartDims(part).replace('DM ', '')}</Text>
+                  <Text selectable={false} style={styles.completedType}>{partKindLabel(part.kind)}</Text>
+                  <Text selectable={false} style={styles.completedDm}>
+                    {formatPartDims(part).replace('DM ', '')}
+                  </Text>
                 </>
               ) : (
-                <Text style={styles.xText}>×</Text>
+                <Text selectable={false} style={styles.xText}>×</Text>
               )}
             </Pressable>
           );
@@ -463,8 +495,8 @@ export function DrawingBoardScreen({ navigation, route }: Props) {
 
         {markers.length === 0 && strokes.length === 0 ? (
           <View pointerEvents="none" style={styles.help}>
-            <Text style={styles.helpTitle}>Rajzold fel a szakaszt</Text>
-            <Text style={styles.helpText}>
+            <Text selectable={false} style={styles.helpTitle}>Rajzold fel a szakaszt</Text>
+            <Text selectable={false} style={styles.helpText}>
               Rajzold meg a folytonos VL és a szaggatott RL vonalat. Ezután kapcsold be a „＋ X”
               módot, és koppints a vonal közelébe.
             </Text>
@@ -572,11 +604,22 @@ const webGestureLock =
         touchAction: 'none',
         overscrollBehavior: 'none',
         userSelect: 'none',
+        WebkitUserSelect: 'none',
+        WebkitTouchCallout: 'none',
       } as never)
     : undefined;
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: '#dfe5e8' },
+  headerDelete: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(255,255,255,0.13)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  headerDeleteText: { color: '#fff', fontSize: 21, fontWeight: '800', lineHeight: 23 },
   toolbar: {
     flexDirection: 'row',
     gap: 6,
