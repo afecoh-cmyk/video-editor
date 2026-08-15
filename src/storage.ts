@@ -1,14 +1,16 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Crypto from 'expo-crypto';
-import type {
-  AppData,
-  CanvasMarker,
-  CanvasPoint,
-  CanvasStroke,
-  PartEntry,
-  PartKind,
-  PipeLineKind,
-  Project,
+import {
+  emptyKindTotals,
+  type AppData,
+  type CanvasMarker,
+  type CanvasPoint,
+  type CanvasStroke,
+  type PartEntry,
+  type PartKind,
+  type PartKindTotals,
+  type PipeLineKind,
+  type Project,
 } from './types';
 
 const STORAGE_KEY = 'muffe-plan:v2';
@@ -591,14 +593,9 @@ export async function dailySummary(date: string): Promise<{
   return { byKind, byDiameter, totalParts, totalMuffs, projectCount: projects.length, projects };
 }
 
-export async function projectPartTotals(projectId: string): Promise<{
-  total: number;
-  muffe: number;
-  reduzir: number;
-  abzweig: number;
-}> {
+export async function projectPartTotals(projectId: string): Promise<PartKindTotals> {
   const parts = await listParts(projectId);
-  const out = { total: 0, muffe: 0, reduzir: 0, abzweig: 0 };
+  const out = emptyKindTotals();
   for (const p of parts) {
     out.total += p.count;
     out[p.kind] += p.count;

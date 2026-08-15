@@ -17,6 +17,7 @@ import Svg, { Line, Path } from 'react-native-svg';
 import { AnimatedPressable } from '../components/AnimatedPressable';
 import { DimensionPicker } from '../components/DimensionPicker';
 import { InstallButton } from '../components/InstallButton';
+import { KindChips } from '../components/KindChips';
 import type { RootStackParamList } from '../navigation';
 import {
   makePipePair,
@@ -37,10 +38,13 @@ import {
   updateCanvasStrokePair,
 } from '../storage';
 import {
-  PART_KINDS,
   formatKindDims,
   formatPartDims,
+  kindNeedsSecondDm,
+  kindPrimaryDmLabel,
+  kindSecondDmLabel,
   partKindLabel,
+  partKindShort,
   type CanvasMarker,
   type CanvasPoint,
   type CanvasStroke,
@@ -471,7 +475,7 @@ export function DrawingBoardScreen({ navigation, route }: Props) {
     const dm = Number(diameterRef.current);
     const dmTo = Number(diameterToRef.current);
     const nextKind = kindRef.current;
-    const needsSecond = nextKind !== 'muffe';
+    const needsSecond = kindNeedsSecondDm(nextKind);
     if (!Number.isFinite(dm) || dm <= 0 || (needsSecond && (!Number.isFinite(dmTo) || dmTo <= 0))) {
       Alert.alert('Hibás DM', 'Adj meg érvényes átmérőt.');
       return;
@@ -653,7 +657,7 @@ export function DrawingBoardScreen({ navigation, route }: Props) {
 
         {markers.map((marker) => {
           const part = marker.partId ? partsById.get(marker.partId) : null;
-          const twoDims = part?.kind === 'reduzir' || part?.kind === 'abzweig';
+          const twoDims = part ? kindNeedsSecondDm(part.kind) : false;
           const markerWidth = part ? (twoDims ? 64 : 44) : 18;
           const markerHeight = part ? 28 : 18;
           return (
@@ -679,7 +683,7 @@ export function DrawingBoardScreen({ navigation, route }: Props) {
             >
               {part ? (
                 <>
-                  <Text selectable={false} style={styles.completedType}>{partKindLabel(part.kind)}</Text>
+                  <Text selectable={false} style={styles.completedType}>{partKindShort(part.kind)}</Text>
                   <Text selectable={false} style={styles.completedDm}>
                     {formatPartDims(part).replace('DM ', '')}
                   </Text>
@@ -796,33 +800,19 @@ export function DrawingBoardScreen({ navigation, route }: Props) {
                 </Text>
               </View>
 
-              <View style={styles.chips}>
-                {PART_KINDS.map((item) => (
-                  <AnimatedPressable
-                    key={item.id}
-                    style={[styles.chip, kind === item.id && styles.chipActive]}
-                    onPress={() => setKind(item.id)}
-                  >
-                    <Text style={[styles.chipText, kind === item.id && styles.chipTextActive]}>
-                      {item.label}
-                    </Text>
-                  </AnimatedPressable>
-                ))}
-              </View>
+              <KindChips value={kind} onChange={setKind} />
 
               <DimensionPicker
                 name="dm-primary"
-                label={
-                  kind === 'abzweig' ? 'Haupt DM' : kind === 'reduzir' ? 'DM von' : 'DM'
-                }
+                label={kindPrimaryDmLabel(kind)}
                 value={diameter}
                 onSelect={setDiameter}
               />
 
-              {kind !== 'muffe' ? (
+              {kindNeedsSecondDm(kind) ? (
                 <DimensionPicker
                   name="dm-secondary"
-                  label={kind === 'reduzir' ? 'DM bis (→)' : 'Abzweig DM'}
+                  label={kindSecondDmLabel(kind)}
                   value={diameterTo}
                   onSelect={setDiameterTo}
                 />

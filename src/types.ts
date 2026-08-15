@@ -1,13 +1,73 @@
 export type ProjectStatus = 'draft' | 'closed';
 
 /** Fitting / part kinds used on site */
-export type PartKind = 'muffe' | 'reduzir' | 'abzweig';
+export type PartKind =
+  | 'muffe'
+  | 'reduzir'
+  | 'abzweig'
+  | 'bogenmuffe'
+  | 'montagebogen'
+  | 'montagemuffe'
+  | 'reduzirmuffe';
 
 export const PART_KINDS: { id: PartKind; label: string; short: string }[] = [
-  { id: 'muffe', label: 'Muffe', short: 'Muffe' },
-  { id: 'reduzir', label: 'Reduzir', short: 'Red.' },
-  { id: 'abzweig', label: 'Abzweig', short: 'Abz.' },
+  { id: 'muffe', label: 'Muffe', short: 'M' },
+  { id: 'reduzir', label: 'Reduzir', short: 'R' },
+  { id: 'abzweig', label: 'Abzweig', short: 'A' },
+  { id: 'bogenmuffe', label: 'Bogenmuffe', short: 'BM' },
+  { id: 'montagebogen', label: 'Montagebogen', short: 'MB' },
+  { id: 'montagemuffe', label: 'Montagemuffe', short: 'MM' },
+  { id: 'reduzirmuffe', label: 'Reduzirmuffe', short: 'RM' },
 ];
+
+export const KIND_GROUPS: { id: 'schrumpf' | 'hegesztett'; label: string; kinds: PartKind[] }[] = [
+  { id: 'schrumpf', label: 'Schrumpf', kinds: ['muffe', 'reduzir', 'abzweig'] },
+  {
+    id: 'hegesztett',
+    label: 'Hegesztett',
+    kinds: ['bogenmuffe', 'montagebogen', 'montagemuffe', 'reduzirmuffe'],
+  },
+];
+
+export type PartKindTotals = { total: number } & Record<PartKind, number>;
+
+export function emptyKindTotals(): PartKindTotals {
+  return {
+    total: 0,
+    muffe: 0,
+    reduzir: 0,
+    abzweig: 0,
+    bogenmuffe: 0,
+    montagebogen: 0,
+    montagemuffe: 0,
+    reduzirmuffe: 0,
+  };
+}
+
+export function kindNeedsSecondDm(kind: PartKind): boolean {
+  return kind === 'reduzir' || kind === 'abzweig' || kind === 'reduzirmuffe';
+}
+
+export function kindUsesReduceDims(kind: PartKind): boolean {
+  return kind === 'reduzir' || kind === 'reduzirmuffe';
+}
+
+export function kindPrimaryDmLabel(kind: PartKind): string {
+  if (kind === 'abzweig') return 'Haupt DM';
+  if (kindUsesReduceDims(kind)) return 'DM von';
+  return 'DM';
+}
+
+export function kindSecondDmLabel(kind: PartKind): string {
+  if (kind === 'abzweig') return 'Abzweig DM';
+  if (kindUsesReduceDims(kind)) return 'DM bis (→)';
+  return '2. DM';
+}
+
+export function formatKindCountLine(totals: PartKindTotals): string {
+  const bits = PART_KINDS.filter((k) => totals[k.id] > 0).map((k) => `${k.short} ${totals[k.id]}`);
+  return bits.length ? bits.join(' · ') : '—';
+}
 
 export type Project = {
   id: string;
@@ -23,8 +83,8 @@ export type Project = {
 
 /**
  * One countable line on a project.
- * - muffe: diameterMm only
- * - reduzir: diameterMm → diameterToMm (pl. 315→250)
+ * - muffe / bogenmuffe / montagebogen / montagemuffe: diameterMm only
+ * - reduzir / reduzirmuffe: diameterMm → diameterToMm (pl. 315→250)
  * - abzweig: diameterMm main, diameterToMm = Abzweig DM
  */
 export type PartEntry = {
@@ -116,8 +176,12 @@ export function partKindLabel(kind: PartKind): string {
   return PART_KINDS.find((k) => k.id === kind)?.label ?? kind;
 }
 
+export function partKindShort(kind: PartKind): string {
+  return PART_KINDS.find((k) => k.id === kind)?.short ?? kind;
+}
+
 export function formatPartDims(entry: Pick<PartEntry, 'kind' | 'diameterMm' | 'diameterToMm'>): string {
-  if (entry.kind === 'reduzir' && entry.diameterToMm != null) {
+  if (kindUsesReduceDims(entry.kind) && entry.diameterToMm != null) {
     return `DM ${entry.diameterMm}→${entry.diameterToMm}`;
   }
   if (entry.kind === 'abzweig' && entry.diameterToMm != null) {
@@ -131,7 +195,7 @@ export function formatKindDims(
   diameterMm: string | number,
   diameterToMm?: string | number | null
 ): string {
-  if (kind === 'reduzir') return `DM ${diameterMm}→${diameterToMm ?? '—'}`;
+  if (kindUsesReduceDims(kind)) return `DM ${diameterMm}→${diameterToMm ?? '—'}`;
   if (kind === 'abzweig') return `DM ${diameterMm}/${diameterToMm ?? '—'}`;
   return `DM ${diameterMm}`;
 }

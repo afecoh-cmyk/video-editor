@@ -16,13 +16,13 @@ Egy bajsztelep / egy átvételi jegyzőkönyv.
 
 ## Entity: PartEntry
 
-Egy tétel a projekten — muff, reduzir vagy abzweig.
+Egy tétel a projekten — Schrumpf (muffe / reduzir / abzweig) vagy hegesztett (bogenmuffe / montagebogen / montagemuffe / reduzirmuffe).
 
 | Mező | Típus | Megjegyzés |
 |---|---|---|
 | id | uuid | |
 | projectId | uuid | FK → Project |
-| kind | enum | `muffe` \| `reduzir` \| `abzweig` |
+| kind | enum | `muffe` \| `reduzir` \| `abzweig` \| `bogenmuffe` \| `montagebogen` \| `montagemuffe` \| `reduzirmuffe` |
 | diameterMm | number | Fő / von DM |
 | diameterToMm | number? | Reduzir: bis · Abzweig: Abzweig DM |
 | count | number | Stk. |
@@ -35,6 +35,10 @@ Egy tétel a projekten — muff, reduzir vagy abzweig.
 - Muffe DM 315 · 21 Stk.
 - Reduzir DM 315→250 · 2 Stk.
 - Abzweig DM 315 / Abz. 125 · 1 Stk.
+- Bogenmuffe DM 200 · 2 Stk. (hegesztett)
+- Montagebogen DM 160 · 1 Stk.
+- Montagemuffe DM 250 · 3 Stk.
+- Reduzirmuffe DM 315→250 · 1 Stk.
 
 ## Entity: WireCheck (későbbi — nem MVP)
 

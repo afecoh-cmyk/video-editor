@@ -54,6 +54,7 @@ A projekt főképernyője egy **teljes telefonkijelzős rajzlap**:
 3. Az összes aktuális, még át nem alakított X egy automatikus csoport; nincs külön kijelölés.
 4. Hosszú nyomás vagy a `Muff (N)` gomb megnyitja a Muffe / Reduzir / Abzweig adatlapot.
 5. Mentéskor minden aktuális X egy darab megadott tétellé alakul. A később lerakott X-ek új csoportot alkotnak.
+6. Hegesztett muffnál külön típusok: **Bogenmuffe**, **Montagebogen**, **Montagemuffe**, **Reduzirmuffe**.
 
 A drótmérés nem része ennek a gyors adatlapnak.
 
@@ -63,7 +64,7 @@ A papír **Druckprobenprotokoll** táblája:
 |---|---|---|
 | Mantelrohr DM | 90, 110, 125, 315… | Előre definiált + egyedi DM |
 | Schrumpfmuffen Stk. | 21 | Darabszám |
-| Bögen / Formstücke | — | Másodlagos, MVP-ben opcionális |
+| Bögen / Formstücke | Bogenmuffe, Montagebogen, Montagemuffe, Reduzirmuffe | Hegesztett muffnál |
 | Prüfdruck | 0,3 Bar | Nyomáspróba |
 
 **UX elvárás (30–40 tétel):**

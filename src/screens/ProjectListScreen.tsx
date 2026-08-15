@@ -12,13 +12,13 @@ import { AnimatedPressable } from '../components/AnimatedPressable';
 import { FadeIn } from '../components/FadeIn';
 import type { RootStackParamList } from '../navigation';
 import { listProjects, projectPartTotals, todayIso } from '../storage';
-import type { Project } from '../types';
+import { formatKindCountLine, type PartKindTotals, type Project } from '../types';
 import { colors, radius, shadow, spacing } from '../theme';
 
 type Nav = NativeStackNavigationProp<RootStackParamList, 'ProjectList'>;
 
 type Row = Project & {
-  totals: { total: number; muffe: number; reduzir: number; abzweig: number };
+  totals: PartKindTotals;
 };
 
 export function ProjectListScreen() {
@@ -95,8 +95,7 @@ export function ProjectListScreen() {
                     {item.betreiber || '—'} · {item.verlegefirma || '—'}
                   </Text>
                   <Text style={styles.total}>
-                    {item.totals.total} db · M {item.totals.muffe} · R {item.totals.reduzir} · A{' '}
-                    {item.totals.abzweig}
+                    {item.totals.total} db · {formatKindCountLine(item.totals)}
                   </Text>
                 </AnimatedPressable>
               </FadeIn>

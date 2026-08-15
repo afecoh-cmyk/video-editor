@@ -14,6 +14,7 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { AnimatedPressable } from '../components/AnimatedPressable';
 import { DimensionPicker } from '../components/DimensionPicker';
 import { FadeIn } from '../components/FadeIn';
+import { KindChips } from '../components/KindChips';
 import type { RootStackParamList } from '../navigation';
 import {
   addPart,
@@ -24,9 +25,13 @@ import {
   updatePart,
 } from '../storage';
 import {
+  emptyKindTotals,
+  formatKindCountLine,
   formatKindDims,
   formatPartDims,
-  PART_KINDS,
+  kindNeedsSecondDm,
+  kindPrimaryDmLabel,
+  kindSecondDmLabel,
   partKindLabel,
   type PartEntry,
   type PartKind,
@@ -53,7 +58,7 @@ export function MuffListScreen({ navigation, route }: Props) {
   const [editDmTo, setEditDmTo] = useState('');
   const [editCount, setEditCount] = useState('');
 
-  const needsSecondDm = kind === 'reduzir' || kind === 'abzweig';
+  const needsSecondDm = kindNeedsSecondDm(kind);
 
   const load = useCallback(async () => {
     const p = await getProject(projectId);
@@ -74,7 +79,7 @@ export function MuffListScreen({ navigation, route }: Props) {
   );
 
   const totals = useMemo(() => {
-    const t = { total: 0, muffe: 0, reduzir: 0, abzweig: 0 };
+    const t = emptyKindTotals();
     for (const p of parts) {
       t.total += p.count;
       t[p.kind] += p.count;
@@ -91,7 +96,7 @@ export function MuffListScreen({ navigation, route }: Props) {
       return;
     }
     if (needsSecondDm && (!Number.isFinite(resolvedDmTo) || resolvedDmTo <= 0)) {
-      Alert.alert('Hibás 2. DM', kind === 'reduzir' ? 'Add meg a cél DM-et (→).' : 'Add meg az Abzweig DM-et.');
+      Alert.alert('Hibás 2. DM', kindSecondDmLabel(kind));
       return;
     }
     if (count <= 0) {
@@ -135,7 +140,7 @@ export function MuffListScreen({ navigation, route }: Props) {
     const dm = Number(editDm);
     const dmTo = editDmTo.trim() ? Number(editDmTo) : null;
     const c = Number(editCount);
-    const needTo = editKind === 'reduzir' || editKind === 'abzweig';
+    const needTo = kindNeedsSecondDm(editKind);
     if (!Number.isFinite(dm) || dm <= 0) {
       Alert.alert('Hibás DM', 'Adj meg érvényes átmérőt.');
       return;
@@ -182,7 +187,7 @@ export function MuffListScreen({ navigation, route }: Props) {
         <View style={{ flex: 1 }}>
           <Text style={styles.summaryLabel}>{project?.date}</Text>
           <Text style={styles.summaryMeta} numberOfLines={1}>
-            M {totals.muffe} · R {totals.reduzir} · A {totals.abzweig}
+            {formatKindCountLine(totals)}
           </Text>
         </View>
         <View style={styles.summaryRight}>
@@ -233,24 +238,11 @@ export function MuffListScreen({ navigation, route }: Props) {
       <View style={styles.quickAdd}>
         <Text style={styles.quickTitle}>Gyors felírás</Text>
 
-        <View style={styles.kindRow}>
-          {PART_KINDS.map((k) => {
-            const active = kind === k.id;
-            return (
-              <AnimatedPressable
-                key={k.id}
-                style={[styles.kindChip, active && styles.kindChipActive]}
-                onPress={() => setKind(k.id)}
-              >
-                <Text style={[styles.kindChipText, active && styles.kindChipTextActive]}>{k.label}</Text>
-              </AnimatedPressable>
-            );
-          })}
-        </View>
+        <KindChips value={kind} onChange={setKind} />
 
         <DimensionPicker
           name="list-dm-primary"
-          label={needsSecondDm ? (kind === 'reduzir' ? 'DM von' : 'Haupt DM') : 'DM'}
+          label={kindPrimaryDmLabel(kind)}
           value={String(diameter)}
           onSelect={(dm) => {
             setDiameter(Number(dm));
@@ -261,7 +253,7 @@ export function MuffListScreen({ navigation, route }: Props) {
         {needsSecondDm ? (
           <DimensionPicker
             name="list-dm-secondary"
-            label={kind === 'reduzir' ? 'DM bis (→)' : 'Abzweig DM'}
+            label={kindSecondDmLabel(kind)}
             value={String(diameterTo)}
             onSelect={(dm) => {
               setDiameterTo(Number(dm));
@@ -326,26 +318,13 @@ export function MuffListScreen({ navigation, route }: Props) {
         <View style={styles.modalBackdrop}>
           <View style={styles.modalCard}>
             <Text style={styles.modalTitle}>Szerkesztés</Text>
-            <View style={styles.kindRow}>
-              {PART_KINDS.map((k) => {
-                const active = editKind === k.id;
-                return (
-                  <AnimatedPressable
-                    key={k.id}
-                    style={[styles.kindChip, active && styles.kindChipActive]}
-                    onPress={() => setEditKind(k.id)}
-                  >
-                    <Text style={[styles.kindChipText, active && styles.kindChipTextActive]}>{k.short}</Text>
-                  </AnimatedPressable>
-                );
-              })}
-            </View>
-            <Text style={styles.inputLabel}>DM</Text>
+            <KindChips value={editKind} onChange={setEditKind} compact />
+            <Text style={styles.inputLabel}>{kindPrimaryDmLabel(editKind)}</Text>
             <TextInput style={styles.input} value={editDm} onChangeText={setEditDm} keyboardType="number-pad" />
-            {editKind === 'reduzir' || editKind === 'abzweig' ? (
+            {kindNeedsSecondDm(editKind) ? (
               <>
                 <Text style={[styles.inputLabel, { marginTop: 12 }]}>
-                  {editKind === 'reduzir' ? 'DM bis' : 'Abzweig DM'}
+                  {kindSecondDmLabel(editKind)}
                 </Text>
                 <TextInput
                   style={styles.input}
