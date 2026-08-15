@@ -316,14 +316,18 @@ export function DrawingBoardScreen({ navigation, route }: Props) {
         }
       }
     }
-    return best && best.distance <= 90 ? best.point : null;
+    // CSS/web képernyőn 1 mm ≈ 3,78 px; legfeljebb kb. 3 mm-es vonalközelség.
+    return best && best.distance <= 12 ? best.point : null;
   };
 
   const placeMarkerAt = async (screenX: number, screenY: number) => {
     if (Date.now() - lastMarkerAtRef.current < 300) return;
     const snapped = nearestPointOnPipe(screenX, screenY);
     if (!snapped) {
-      Alert.alert('Nincs csővonal a közelben', 'Koppints közelebb a megrajzolt VL vagy RL vonalhoz.');
+      Alert.alert(
+        'Nincs csővonal elég közel',
+        'Az X csak a vonaltól legfeljebb kb. 3 mm-re érzékelhető.'
+      );
       return;
     }
     await addCanvasMarker(projectId, snapped);
