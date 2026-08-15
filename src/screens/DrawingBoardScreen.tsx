@@ -5,9 +5,9 @@ import {
   PanResponder,
   Platform,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   View,
   type LayoutChangeEvent,
 } from 'react-native';
@@ -288,6 +288,7 @@ export function DrawingBoardScreen({ navigation, route }: Props) {
   const [kind, setKind] = useState<PartKind>('muffe');
   const [diameter, setDiameter] = useState('315');
   const [diameterTo, setDiameterTo] = useState('250');
+  const [dimensionPicker, setDimensionPicker] = useState<'primary' | 'secondary' | null>(null);
   const [view, setView] = useState<ViewTransform>({ scale: 1, offsetX: 0, offsetY: 0 });
   const drawingRef = useRef<CanvasPoint[]>([]);
   const markerTapRef = useRef<{
@@ -973,40 +974,72 @@ export function DrawingBoardScreen({ navigation, route }: Props) {
             </View>
 
             <Text style={styles.label}>{kind === 'abzweig' ? 'Haupt DM' : 'DM'}</Text>
-            <View style={styles.dmChips}>
-              {COMMON_DIAMETERS.map((dm) => (
-                <Pressable
-                  key={dm}
-                  style={[styles.dmChip, diameter === String(dm) && styles.dmChipActive]}
-                  onPress={() => setDiameter(String(dm))}
-                >
-                  <Text style={styles.dmChipText}>{dm}</Text>
-                </Pressable>
-              ))}
-            </View>
-            <TextInput
-              style={styles.input}
-              keyboardType="number-pad"
-              value={diameter}
-              onChangeText={setDiameter}
-              placeholder="Egyedi DM"
-            />
+            <Pressable
+              style={styles.dimensionField}
+              onPress={() => setDimensionPicker('primary')}
+            >
+              <Text style={styles.dimensionValue}>DM {diameter}</Text>
+              <Text style={styles.dimensionArrow}>⌄</Text>
+            </Pressable>
 
             {kind !== 'muffe' ? (
               <>
                 <Text style={styles.label}>{kind === 'reduzir' ? 'Cél DM' : 'Abzweig DM'}</Text>
-                <TextInput
-                  style={styles.input}
-                  keyboardType="number-pad"
-                  value={diameterTo}
-                  onChangeText={setDiameterTo}
-                  placeholder="Második DM"
-                />
+                <Pressable
+                  style={styles.dimensionField}
+                  onPress={() => setDimensionPicker('secondary')}
+                >
+                  <Text style={styles.dimensionValue}>DM {diameterTo}</Text>
+                  <Text style={styles.dimensionArrow}>⌄</Text>
+                </Pressable>
               </>
             ) : null}
 
             <Pressable style={styles.saveButton} onPress={saveConversion}>
               <Text style={styles.saveText}>Átalakítás ({openMarkers.length} db)</Text>
+            </Pressable>
+          </Pressable>
+        </Pressable>
+      </Modal>
+
+      <Modal
+        visible={dimensionPicker != null}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setDimensionPicker(null)}
+      >
+        <Pressable style={styles.backdrop} onPress={() => setDimensionPicker(null)}>
+          <Pressable style={styles.dimensionSheet} onPress={(event) => event.stopPropagation()}>
+            <Text style={styles.sheetTitle}>
+              {dimensionPicker === 'secondary' ? 'Második DM kiválasztása' : 'DM kiválasztása'}
+            </Text>
+            <Text style={styles.sheetHint}>Válassz méretet DM 90–710 között.</Text>
+            <ScrollView style={styles.dimensionList} showsVerticalScrollIndicator>
+              {COMMON_DIAMETERS.map((dm) => {
+                const active =
+                  dimensionPicker === 'secondary'
+                    ? diameterTo === String(dm)
+                    : diameter === String(dm);
+                return (
+                  <Pressable
+                    key={dm}
+                    style={[styles.dimensionRow, active && styles.dimensionRowActive]}
+                    onPress={() => {
+                      if (dimensionPicker === 'secondary') setDiameterTo(String(dm));
+                      else setDiameter(String(dm));
+                      setDimensionPicker(null);
+                    }}
+                  >
+                    <Text style={[styles.dimensionRowText, active && styles.dimensionRowTextActive]}>
+                      DM {dm}
+                    </Text>
+                    {active ? <Text style={styles.dimensionCheck}>✓</Text> : null}
+                  </Pressable>
+                );
+              })}
+            </ScrollView>
+            <Pressable style={styles.menuCancel} onPress={() => setDimensionPicker(null)}>
+              <Text style={styles.menuCancelText}>Mégse</Text>
             </Pressable>
           </Pressable>
         </Pressable>
@@ -1240,25 +1273,42 @@ const styles = StyleSheet.create({
   chipText: { color: colors.ink, fontWeight: '700' },
   chipTextActive: { color: '#fff' },
   label: { color: colors.ink, fontWeight: '800', marginBottom: 7 },
-  dmChips: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 8 },
-  dmChip: {
-    paddingHorizontal: 10,
-    paddingVertical: 7,
+  dimensionField: {
+    minHeight: 52,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 14,
+    marginBottom: spacing.md,
     borderRadius: 8,
     backgroundColor: colors.bg,
-  },
-  dmChipActive: { backgroundColor: '#ffd3a6' },
-  dmChipText: { color: colors.ink, fontWeight: '700' },
-  input: {
     borderWidth: 1,
     borderColor: colors.border,
-    borderRadius: 9,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    fontSize: 17,
-    color: colors.ink,
-    marginBottom: spacing.md,
   },
+  dimensionValue: { color: colors.ink, fontSize: 18, fontWeight: '800' },
+  dimensionArrow: { color: colors.muted, fontSize: 22, fontWeight: '800' },
+  dimensionSheet: {
+    backgroundColor: colors.surface,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    padding: spacing.md,
+    paddingBottom: spacing.lg,
+    maxHeight: '82%',
+  },
+  dimensionList: { maxHeight: 430 },
+  dimensionRow: {
+    minHeight: 48,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
+  dimensionRowActive: { backgroundColor: '#fff3e6' },
+  dimensionRowText: { color: colors.ink, fontSize: 17, fontWeight: '700' },
+  dimensionRowTextActive: { color: colors.accent, fontWeight: '900' },
+  dimensionCheck: { color: colors.accent, fontSize: 20, fontWeight: '900' },
   saveButton: {
     backgroundColor: colors.accent,
     paddingVertical: 15,

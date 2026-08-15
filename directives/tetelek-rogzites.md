@@ -32,6 +32,9 @@ A szerelő telefonon gyorsan felírja és módosítja:
 5. X módban csak rövid, legfeljebb 10 px-t mozduló koppintás rak le X-et; húzás/pinch után nem. A koppintásnak a VL/RL vonaltól legfeljebb kb. **3 mm-re (12 px)** kell lennie, különben nem kerül le X.
 6. Minden még át nem alakított X automatikusan az **aktuális csoport** része; nincs külön kijelölési mód.
 7. Hosszú nyomás X módban vagy a `Muff (N)` gomb → közös típus + DM adatlap.
+   - Az adatlapon csak az aktuálisan kiválasztott DM látszik.
+   - A DM mezőre koppintva külön, görgethető méretmenü nyílik DM 90–710 értékekkel.
+   - Reduzir/Abzweig esetén a második DM ugyanilyen külön menüből választható.
 8. Mentéskor az összes aktuális X külön 1 db PartEntry lesz. A később lerakott X-ek új csoportot alkotnak.
 9. Drótmérés ezen az adatlapon nincs.
 

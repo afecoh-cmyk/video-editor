@@ -81,7 +81,26 @@ export type AppData = {
   canvasStrokes: CanvasStroke[];
 };
 
-export const COMMON_DIAMETERS = [90, 110, 125, 140, 160, 180, 200, 225, 250, 280, 315, 355, 400] as const;
+export const COMMON_DIAMETERS = [
+  90,
+  110,
+  125,
+  140,
+  160,
+  180,
+  200,
+  225,
+  250,
+  280,
+  315,
+  355,
+  400,
+  450,
+  500,
+  560,
+  630,
+  710,
+] as const;
 
 export function partKindLabel(kind: PartKind): string {
   return PART_KINDS.find((k) => k.id === kind)?.label ?? kind;
