@@ -45,7 +45,17 @@ Papír mezők → app mezők:
 | Anlage mit Ohmmeter / MH3 | Méréstípus (opció) |
 | Datum | Dátum (automatikus + szerkeszthető) |
 
-### 2. Muff rögzítés (elsődleges funkció)
+### 2. Rajzlap + muff rögzítés (elsődleges funkció)
+
+A projekt főképernyője egy **teljes telefonkijelzős rajzlap**:
+
+1. **Rajz mód** (alapértelmezett): ujjal felrajzolható a cső / szakasz.
+2. **X mód** (külön aktiválandó): minden koppintás egy nyitott muff helyére tesz egy X-et.
+3. **Kijelöl mód**: az X-ek egyenként koppintva kijelölhetők.
+4. Ha van kijelölés, a rajzlap hosszú nyomása megnyitja a Muffe / Reduzir / Abzweig adatlapot.
+5. Mentéskor minden kijelölt X egy darab megadott tétellé alakul; a napi összesítő automatikusan számolja.
+
+A drótmérés nem része ennek a gyors adatlapnak.
 
 A papír **Druckprobenprotokoll** táblája:
 

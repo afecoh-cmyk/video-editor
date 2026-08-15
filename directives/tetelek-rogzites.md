@@ -15,7 +15,17 @@ A szerelő telefonon gyorsan felírja és módosítja:
 - UI: `src/screens/MuffListScreen.tsx`
 - Összesítő: `src/screens/DailySummaryScreen.tsx`
 
-## UX szabályok (ne törjük el)
+## Elsődleges rajzlap-folyamat
+
+1. A projekt megnyitása a teljes képernyős rajzlapra visz.
+2. **Rajz** az alapmód; az **X módot külön aktiválni kell**.
+3. X módban koppintással kerülnek le a nyitott muff-helyek.
+4. Kijelöl módban az X-ek egyenként választhatók.
+5. Hosszú nyomás a rajzlapon → közös típus + DM adatlap.
+6. Minden kijelölt X külön 1 db PartEntry lesz; az összesítő csoportosítja.
+7. Drótmérés ezen az adatlapon nincs.
+
+## Lista UX szabályok (másodlagos nézet)
 
 1. Gyors felírás alul: típus chip → DM chip(ek) → Stk. +/− → Hozzáad
 2. Listán minden sornál **+/−** azonnali darabszám-módosítás

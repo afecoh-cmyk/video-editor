@@ -76,7 +76,7 @@ export function ProjectListScreen() {
             return (
               <Pressable
                 style={styles.card}
-                onPress={() => navigation.navigate('MuffList', { projectId: item.id })}
+                onPress={() => navigation.navigate('DrawingBoard', { projectId: item.id })}
                 onLongPress={() => navigation.navigate('ProjectForm', { projectId: item.id })}
               >
                 <View style={styles.cardTop}>

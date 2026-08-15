@@ -4,6 +4,7 @@ import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import type { RootStackParamList } from './src/navigation';
 import { DailySummaryScreen } from './src/screens/DailySummaryScreen';
+import { DrawingBoardScreen } from './src/screens/DrawingBoardScreen';
 import { MuffListScreen } from './src/screens/MuffListScreen';
 import { ProjectFormScreen } from './src/screens/ProjectFormScreen';
 import { ProjectListScreen } from './src/screens/ProjectListScreen';
@@ -35,6 +36,11 @@ export default function App() {
             options={({ route }) => ({
               title: route.params?.projectId ? 'Projekt szerkesztése' : 'Új projekt',
             })}
+          />
+          <Stack.Screen
+            name="DrawingBoard"
+            component={DrawingBoardScreen}
+            options={{ title: 'Rajzlap' }}
           />
           <Stack.Screen
             name="MuffList"

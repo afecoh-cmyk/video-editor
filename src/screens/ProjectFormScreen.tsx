@@ -61,7 +61,7 @@ export function ProjectFormScreen({ navigation, route }: Props) {
       if (editing) {
         navigation.goBack();
       } else {
-        navigation.replace('MuffList', { projectId: project.id });
+        navigation.replace('DrawingBoard', { projectId: project.id });
       }
     } catch (e) {
       Alert.alert('Hiba', e instanceof Error ? e.message : 'Mentés sikertelen');

@@ -40,12 +40,37 @@ export type PartEntry = {
   createdAt: string;
 };
 
+export type CanvasPoint = {
+  x: number;
+  y: number;
+};
+
+/** Szabadkézi vonal a projekt rajzlapján. A koordináták 0–1 közöttiek. */
+export type CanvasStroke = {
+  id: string;
+  projectId: string;
+  points: CanvasPoint[];
+  createdAt: string;
+};
+
+/** Egy X helye; átalakítás után egy konkrét tételhez kapcsolódik. */
+export type CanvasMarker = {
+  id: string;
+  projectId: string;
+  x: number;
+  y: number;
+  partId: string | null;
+  createdAt: string;
+};
+
 /** @deprecated use PartEntry — kept alias for older imports */
 export type MuffEntry = PartEntry;
 
 export type AppData = {
   projects: Project[];
   parts: PartEntry[];
+  canvasMarkers: CanvasMarker[];
+  canvasStrokes: CanvasStroke[];
 };
 
 export const COMMON_DIAMETERS = [90, 110, 125, 140, 160, 180, 200, 225, 250, 280, 315, 355, 400] as const;

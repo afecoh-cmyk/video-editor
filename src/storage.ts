@@ -1,11 +1,24 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Crypto from 'expo-crypto';
-import type { AppData, PartEntry, PartKind, Project } from './types';
+import type {
+  AppData,
+  CanvasMarker,
+  CanvasPoint,
+  CanvasStroke,
+  PartEntry,
+  PartKind,
+  Project,
+} from './types';
 
 const STORAGE_KEY = 'muffe-plan:v2';
 const LEGACY_KEY = 'muffe-plan:v1';
 
-const emptyData = (): AppData => ({ projects: [], parts: [] });
+const emptyData = (): AppData => ({
+  projects: [],
+  parts: [],
+  canvasMarkers: [],
+  canvasStrokes: [],
+});
 
 type LegacyMuff = {
   id: string;
@@ -42,7 +55,12 @@ async function migrateIfNeeded(): Promise<void> {
     }));
     await AsyncStorage.setItem(
       STORAGE_KEY,
-      JSON.stringify({ projects: parsed.projects ?? [], parts })
+      JSON.stringify({
+        projects: parsed.projects ?? [],
+        parts,
+        canvasMarkers: [],
+        canvasStrokes: [],
+      })
     );
   } catch {
     // ignore corrupt legacy
@@ -57,7 +75,12 @@ async function read(): Promise<AppData> {
     const parsed = JSON.parse(raw) as AppData & { muffs?: LegacyMuff[] };
     // tolerate accidental old shape
     if (parsed.parts) {
-      return { projects: parsed.projects ?? [], parts: parsed.parts };
+      return {
+        projects: parsed.projects ?? [],
+        parts: parsed.parts,
+        canvasMarkers: parsed.canvasMarkers ?? [],
+        canvasStrokes: parsed.canvasStrokes ?? [],
+      };
     }
     if (parsed.muffs) {
       return {
@@ -74,6 +97,8 @@ async function read(): Promise<AppData> {
           sortOrder: m.sortOrder,
           createdAt: m.createdAt,
         })),
+        canvasMarkers: [],
+        canvasStrokes: [],
       };
     }
     return emptyData();
@@ -160,6 +185,109 @@ export async function deleteProject(id: string): Promise<void> {
   const data = await read();
   data.projects = data.projects.filter((p) => p.id !== id);
   data.parts = data.parts.filter((m) => m.projectId !== id);
+  data.canvasMarkers = data.canvasMarkers.filter((m) => m.projectId !== id);
+  data.canvasStrokes = data.canvasStrokes.filter((s) => s.projectId !== id);
+  await write(data);
+}
+
+export async function getCanvas(projectId: string): Promise<{
+  markers: CanvasMarker[];
+  strokes: CanvasStroke[];
+}> {
+  const data = await read();
+  return {
+    markers: data.canvasMarkers.filter((m) => m.projectId === projectId),
+    strokes: data.canvasStrokes.filter((s) => s.projectId === projectId),
+  };
+}
+
+export async function addCanvasMarker(
+  projectId: string,
+  point: CanvasPoint
+): Promise<CanvasMarker> {
+  const data = await read();
+  const marker: CanvasMarker = {
+    id: await newId(),
+    projectId,
+    x: Math.max(0, Math.min(1, point.x)),
+    y: Math.max(0, Math.min(1, point.y)),
+    partId: null,
+    createdAt: new Date().toISOString(),
+  };
+  data.canvasMarkers.push(marker);
+  touchProject(data, projectId);
+  await write(data);
+  return marker;
+}
+
+export async function addCanvasStroke(
+  projectId: string,
+  points: CanvasPoint[]
+): Promise<CanvasStroke | null> {
+  if (points.length < 2) return null;
+  const data = await read();
+  const stroke: CanvasStroke = {
+    id: await newId(),
+    projectId,
+    points: points.map((p) => ({
+      x: Math.max(0, Math.min(1, p.x)),
+      y: Math.max(0, Math.min(1, p.y)),
+    })),
+    createdAt: new Date().toISOString(),
+  };
+  data.canvasStrokes.push(stroke);
+  touchProject(data, projectId);
+  await write(data);
+  return stroke;
+}
+
+export async function undoCanvasAction(projectId: string): Promise<void> {
+  const data = await read();
+  const markers = data.canvasMarkers.filter((m) => m.projectId === projectId);
+  const strokes = data.canvasStrokes.filter((s) => s.projectId === projectId);
+  const marker = markers.at(-1);
+  const stroke = strokes.at(-1);
+  if (!marker && !stroke) return;
+  if (marker && (!stroke || marker.createdAt >= stroke.createdAt)) {
+    if (marker.partId) data.parts = data.parts.filter((p) => p.id !== marker.partId);
+    data.canvasMarkers = data.canvasMarkers.filter((m) => m.id !== marker.id);
+  } else if (stroke) {
+    data.canvasStrokes = data.canvasStrokes.filter((s) => s.id !== stroke.id);
+  }
+  touchProject(data, projectId);
+  await write(data);
+}
+
+export async function convertMarkersToParts(input: {
+  projectId: string;
+  markerIds: string[];
+  kind: PartKind;
+  diameterMm: number;
+  diameterToMm?: number | null;
+}): Promise<void> {
+  const data = await read();
+  const markerIds = new Set(input.markerIds);
+  const selected = data.canvasMarkers.filter(
+    (m) => m.projectId === input.projectId && markerIds.has(m.id) && !m.partId
+  );
+  let sortOrder = data.parts.filter((p) => p.projectId === input.projectId).length;
+  for (const marker of selected) {
+    const part: PartEntry = {
+      id: await newId(),
+      projectId: input.projectId,
+      kind: input.kind,
+      diameterMm: input.diameterMm,
+      diameterToMm: input.diameterToMm ?? null,
+      count: 1,
+      testPressureBar: null,
+      note: '',
+      sortOrder: sortOrder++,
+      createdAt: new Date().toISOString(),
+    };
+    data.parts.push(part);
+    marker.partId = part.id;
+  }
+  touchProject(data, input.projectId);
   await write(data);
 }
 
