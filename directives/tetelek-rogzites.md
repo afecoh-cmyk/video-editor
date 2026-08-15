@@ -23,6 +23,8 @@ A szerelő telefonon gyorsan felírja és módosítja:
    - **Rajz módban** az egyujjas mozdulat vonalat rajzol, a papír nem csúszhat el.
 3. Egy rajzmozdulat automatikusan **két párhuzamos vonalat** készít: **VL / Vorlauf** (meleg előremenő, folytonos) + **RL / Rücklauf** (visszatérő, szaggatott).
    - Elengedéskor a vonal automatikusan egyszerűsödik: a kézremegés eltűnik, a valódi sarkok tiszta töréspontok maradnak.
+   - A megtartott szakaszok vízszintes vagy függőleges, 90°-os tervrajzi vonalakká igazodnak.
+   - A VL/RL pár valódi sarokillesztést használ: a beállított távolság a sarkokban sem szűkülhet vagy tágulhat.
    - **Cső módban** koppintással kijelölhető egy vonalpár; a `− / +` vezérlővel 12–80 px között állítható a VL–RL távolság.
    - A vonalhoz kapcsolt X-eknek együtt kell mozogniuk a távolság állításakor.
 4. **Rajz** az alapmód; az **X módot külön aktiválni kell**.

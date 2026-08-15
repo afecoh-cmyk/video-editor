@@ -92,20 +92,79 @@ function simplifyPipePath(
   return [...left.slice(0, -1), ...right];
 }
 
+/** A megtartott töréspontokat vízszintes/függőleges tervrajzi szakaszokra igazítja. */
+function orthogonalizePipePath(
+  points: CanvasPoint[],
+  size: { width: number; height: number }
+): CanvasPoint[] {
+  if (points.length < 2) return points;
+  const result: CanvasPoint[] = [points[0]];
+  for (let index = 1; index < points.length; index += 1) {
+    const current = result[result.length - 1];
+    const target = points[index];
+    const dx = (target.x - current.x) * size.width;
+    const dy = (target.y - current.y) * size.height;
+    const next =
+      Math.abs(dx) >= Math.abs(dy)
+        ? { x: target.x, y: current.y }
+        : { x: current.x, y: target.y };
+    if (
+      Math.hypot((next.x - current.x) * size.width, (next.y - current.y) * size.height) >= 6
+    ) {
+      result.push(next);
+    }
+  }
+
+  if (result.length < 3) return result;
+  const cleaned: CanvasPoint[] = [result[0]];
+  for (let index = 1; index < result.length - 1; index += 1) {
+    const before = cleaned[cleaned.length - 1];
+    const current = result[index];
+    const after = result[index + 1];
+    const firstHorizontal = Math.abs(current.y - before.y) < 0.0001;
+    const secondHorizontal = Math.abs(after.y - current.y) < 0.0001;
+    if (firstHorizontal !== secondHorizontal) cleaned.push(current);
+  }
+  cleaned.push(result[result.length - 1]);
+  return cleaned;
+}
+
 function offsetPipe(
   points: CanvasPoint[],
   offsetPx: number,
   size: { width: number; height: number }
 ): CanvasPoint[] {
   return points.map((point, index) => {
-    const before = points[Math.max(0, index - 1)];
-    const after = points[Math.min(points.length - 1, index + 1)];
-    const dx = (after.x - before.x) * size.width;
-    const dy = (after.y - before.y) * size.height;
-    const length = Math.hypot(dx, dy) || 1;
+    const previous = points[Math.max(0, index - 1)];
+    const next = points[Math.min(points.length - 1, index + 1)];
+    const incomingX = (point.x - previous.x) * size.width;
+    const incomingY = (point.y - previous.y) * size.height;
+    const outgoingX = (next.x - point.x) * size.width;
+    const outgoingY = (next.y - point.y) * size.height;
+    const incomingLength = Math.hypot(incomingX, incomingY);
+    const outgoingLength = Math.hypot(outgoingX, outgoingY);
+
+    const firstX = incomingLength ? incomingX / incomingLength : outgoingX / (outgoingLength || 1);
+    const firstY = incomingLength ? incomingY / incomingLength : outgoingY / (outgoingLength || 1);
+    const secondX = outgoingLength ? outgoingX / outgoingLength : firstX;
+    const secondY = outgoingLength ? outgoingY / outgoingLength : firstY;
+    const firstNormal = { x: -firstY, y: firstX };
+    const secondNormal = { x: -secondY, y: secondX };
+    const sumX = firstNormal.x + secondNormal.x;
+    const sumY = firstNormal.y + secondNormal.y;
+    const sumLength = Math.hypot(sumX, sumY);
+    const miter =
+      sumLength > 0.001
+        ? { x: sumX / sumLength, y: sumY / sumLength }
+        : secondNormal;
+    const denominator = miter.x * secondNormal.x + miter.y * secondNormal.y;
+    const miterLength =
+      Math.abs(denominator) > 0.1
+        ? Math.max(-Math.abs(offsetPx) * 3, Math.min(Math.abs(offsetPx) * 3, offsetPx / denominator))
+        : offsetPx;
     return {
-      x: point.x + (-dy / length) * (offsetPx / size.width),
-      y: point.y + (dx / length) * (offsetPx / size.height),
+      x: point.x + (miter.x * miterLength) / size.width,
+      y: point.y + (miter.y * miterLength) / size.height,
     };
   });
 }
@@ -379,7 +438,8 @@ export function DrawingBoardScreen({ navigation, route }: Props) {
           const points = drawingRef.current;
           drawingRef.current = [];
           setDraftPoints([]);
-          const cleaned = simplifyPipePath(points, size, 9 / viewRef.current.scale);
+          const simplified = simplifyPipePath(points, size, 9 / viewRef.current.scale);
+          const cleaned = orthogonalizePipePath(simplified, size);
           const [vorlauf, ruecklauf] = makePipePair(cleaned, size);
           await addCanvasStrokePair(projectId, vorlauf, ruecklauf);
           await load();
