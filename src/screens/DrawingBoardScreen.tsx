@@ -5,6 +5,7 @@ import {
   PanResponder,
   Platform,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -40,7 +41,7 @@ import {
 import { colors, spacing } from '../theme';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'DrawingBoard'>;
-type Mode = 'draw' | 'mark' | 'pipe';
+type Mode = 'pan' | 'draw' | 'mark' | 'pipe';
 type ViewTransform = { scale: number; offsetX: number; offsetY: number };
 
 function pointToSegmentDistance(
@@ -123,7 +124,7 @@ function makePipePair(
 
 export function DrawingBoardScreen({ navigation, route }: Props) {
   const { projectId } = route.params;
-  const [mode, setMode] = useState<Mode>('draw');
+  const [mode, setMode] = useState<Mode>('pan');
   const [markers, setMarkers] = useState<CanvasMarker[]>([]);
   const [strokes, setStrokes] = useState<CanvasStroke[]>([]);
   const [parts, setParts] = useState<PartEntry[]>([]);
@@ -146,6 +147,12 @@ export function DrawingBoardScreen({ navigation, route }: Props) {
     startedAt: number;
   } | null>(null);
   const pipeTapRef = useRef<{ x: number; y: number; moved: boolean } | null>(null);
+  const panDragRef = useRef<{
+    x: number;
+    y: number;
+    offsetX: number;
+    offsetY: number;
+  } | null>(null);
   const markerPlacementRef = useRef<(x: number, y: number) => Promise<void>>(async () => {});
   const openConvertRef = useRef<() => void>(() => {});
   const pipeSelectionRef = useRef<(x: number, y: number) => void>(() => {});
@@ -222,6 +229,7 @@ export function DrawingBoardScreen({ navigation, route }: Props) {
       };
       markerTapRef.current = null;
       pipeTapRef.current = null;
+      panDragRef.current = null;
       suppressTapUntilRef.current = Date.now() + 400;
       drawingRef.current = [];
       setDraftPoints([]);
@@ -239,15 +247,26 @@ export function DrawingBoardScreen({ navigation, route }: Props) {
           event.nativeEvent.touches.length >= 2 ||
           mode === 'draw' ||
           mode === 'mark' ||
-          mode === 'pipe',
+          mode === 'pipe' ||
+          mode === 'pan',
         onMoveShouldSetPanResponder: (event) =>
           event.nativeEvent.touches.length >= 2 ||
           mode === 'draw' ||
           mode === 'mark' ||
-          mode === 'pipe',
+          mode === 'pipe' ||
+          mode === 'pan',
         onPanResponderGrant: (event) => {
           if (event.nativeEvent.touches.length >= 2) {
             beginPinch(event.nativeEvent.touches);
+            return;
+          }
+          if (mode === 'pan') {
+            panDragRef.current = {
+              x: event.nativeEvent.locationX,
+              y: event.nativeEvent.locationY,
+              offsetX: viewRef.current.offsetX,
+              offsetY: viewRef.current.offsetY,
+            };
             return;
           }
           if (mode === 'mark') {
@@ -296,6 +315,18 @@ export function DrawingBoardScreen({ navigation, route }: Props) {
             });
             return;
           }
+          if (mode === 'pan' && panDragRef.current) {
+            updateView({
+              scale: viewRef.current.scale,
+              offsetX:
+                panDragRef.current.offsetX +
+                (event.nativeEvent.locationX - panDragRef.current.x),
+              offsetY:
+                panDragRef.current.offsetY +
+                (event.nativeEvent.locationY - panDragRef.current.y),
+            });
+            return;
+          }
           if (mode === 'mark' && markerTapRef.current) {
             const movement = Math.hypot(
               event.nativeEvent.locationX - markerTapRef.current.x,
@@ -323,6 +354,10 @@ export function DrawingBoardScreen({ navigation, route }: Props) {
             pinchRef.current = null;
             drawingRef.current = [];
             setDraftPoints([]);
+            return;
+          }
+          if (mode === 'pan') {
+            panDragRef.current = null;
             return;
           }
           if (mode === 'mark') {
@@ -354,6 +389,7 @@ export function DrawingBoardScreen({ navigation, route }: Props) {
           pinchRef.current = null;
           markerTapRef.current = null;
           pipeTapRef.current = null;
+          panDragRef.current = null;
           drawingRef.current = [];
           setDraftPoints([]);
         },
@@ -531,7 +567,12 @@ export function DrawingBoardScreen({ navigation, route }: Props) {
 
   return (
     <View style={styles.screen}>
-      <View style={styles.toolbar}>
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.toolbar}
+      >
+        <ModeButton active={mode === 'pan'} label="✋ Mozgat" onPress={() => changeMode('pan')} />
         <ModeButton active={mode === 'draw'} label="✎ Rajz" onPress={() => changeMode('draw')} />
         <ModeButton active={mode === 'mark'} label="＋ X" onPress={() => changeMode('mark')} />
         <ModeButton active={mode === 'pipe'} label="Cső" onPress={() => changeMode('pipe')} />
@@ -558,7 +599,7 @@ export function DrawingBoardScreen({ navigation, route }: Props) {
         >
           <Text style={styles.toolText}>↶</Text>
         </Pressable>
-      </View>
+      </ScrollView>
 
       {mode === 'pipe' && selectedPairId ? (
         <View style={styles.spacingBar}>
@@ -682,8 +723,10 @@ export function DrawingBoardScreen({ navigation, route }: Props) {
 
       <View style={styles.status}>
         <Text style={styles.statusText}>
-          {mode === 'draw'
-            ? 'Rajzolj egyszer — elengedéskor a vonal és a sarkok kisimulnak'
+          {mode === 'pan'
+            ? 'Mozgatás mód · egy ujjal húzd a papírt'
+            : mode === 'draw'
+              ? 'Rajz mód · a lap rögzítve marad az ujjad alatt'
             : mode === 'mark'
               ? `${openMarkers.length} aktuális X · hosszan nyomd vagy Muff (${openMarkers.length})`
               : selectedPairId

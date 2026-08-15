@@ -19,6 +19,8 @@ A szerelő telefonon gyorsan felírja és módosítja:
 
 1. A projekt megnyitása a teljes képernyős rajzlapra visz.
 2. A rajzlap kockás; **két ujjal nagyítható és mozgatható**, így nagy csőrendszer is elfér.
+   - **Mozgatás módban** egy ujjal húzható a teljes papír/rajz.
+   - **Rajz módban** az egyujjas mozdulat vonalat rajzol, a papír nem csúszhat el.
 3. Egy rajzmozdulat automatikusan **két párhuzamos vonalat** készít: **VL / Vorlauf** (meleg előremenő, folytonos) + **RL / Rücklauf** (visszatérő, szaggatott).
    - Elengedéskor a vonal automatikusan egyszerűsödik: a kézremegés eltűnik, a valódi sarkok tiszta töréspontok maradnak.
    - **Cső módban** koppintással kijelölhető egy vonalpár; a `− / +` vezérlővel 12–80 px között állítható a VL–RL távolság.
