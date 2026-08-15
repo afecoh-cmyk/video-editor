@@ -52,6 +52,13 @@ type Props = NativeStackScreenProps<RootStackParamList, 'DrawingBoard'>;
 type Mode = 'pan' | 'draw' | 'mark' | 'pipe';
 type ViewTransform = { scale: number; offsetX: number; offsetY: number };
 
+const MIN_SCALE = 0.35;
+const MAX_SCALE = 6;
+
+function clampScale(scale: number): number {
+  return Math.max(MIN_SCALE, Math.min(MAX_SCALE, scale));
+}
+
 export function DrawingBoardScreen({ navigation, route }: Props) {
   const { projectId } = route.params;
   const [mode, setMode] = useState<Mode>('pan');
@@ -242,11 +249,8 @@ export function DrawingBoardScreen({ navigation, route }: Props) {
             const midY = (a.locationY + b.locationY) / 2;
             const distance = Math.hypot(b.locationX - a.locationX, b.locationY - a.locationY);
             const rawRatio = distance / Math.max(1, pinch.distance);
-            const dampedRatio = 1 + (rawRatio - 1) * 0.55;
-            const scale = Math.max(
-              0.8,
-              Math.min(2.2, pinch.startScale * dampedRatio)
-            );
+            const dampedRatio = 1 + (rawRatio - 1) * 0.88;
+            const scale = clampScale(pinch.startScale * dampedRatio);
             updateView({
               scale,
               offsetX: midX - pinch.worldX * scale,
@@ -487,6 +491,20 @@ export function DrawingBoardScreen({ navigation, route }: Props) {
     if (next !== 'pipe') setSelectedPairId(null);
   };
 
+  const zoomBy = (factor: number) => {
+    const current = viewRef.current;
+    const next = clampScale(current.scale * factor);
+    const centerX = size.width / 2;
+    const centerY = size.height / 2;
+    const worldX = (centerX - current.offsetX) / current.scale;
+    const worldY = (centerY - current.offsetY) / current.scale;
+    updateView({
+      scale: next,
+      offsetX: centerX - worldX * next,
+      offsetY: centerY - worldY * next,
+    });
+  };
+
   const onLayout = (event: LayoutChangeEvent) => {
     const { width, height } = event.nativeEvent.layout;
     if (width > 0 && height > 0) setSize({ width, height });
@@ -494,7 +512,7 @@ export function DrawingBoardScreen({ navigation, route }: Props) {
 
   const gridSpacing = 28 * view.scale;
   const symbolScale = Math.max(0.68, Math.min(1.05, Math.sqrt(view.scale) * 0.82));
-  const drawingWidth = Math.max(2, Math.min(4.5, 3 * Math.sqrt(view.scale)));
+  const drawingWidth = Math.max(2, Math.min(7, 3 * Math.sqrt(view.scale)));
   const gridStartX = ((view.offsetX % gridSpacing) + gridSpacing) % gridSpacing;
   const gridStartY = ((view.offsetY % gridSpacing) + gridSpacing) % gridSpacing;
   const gridX = Array.from(
@@ -527,11 +545,19 @@ export function DrawingBoardScreen({ navigation, route }: Props) {
             M {openMarkers.length}
           </Text>
         </Pressable>
+        <Pressable style={[styles.toolButton, styles.toolButtonCompact]} onPress={() => zoomBy(1 / 1.4)}>
+          <Text style={styles.toolText}>−</Text>
+        </Pressable>
         <Pressable
-          style={styles.toolButton}
+          style={[styles.toolButton, styles.toolButtonCompact]}
           onPress={() => updateView({ scale: 1, offsetX: 0, offsetY: 0 })}
         >
-          <Text style={styles.toolText}>1:1</Text>
+          <Text style={styles.toolText}>
+            {Math.abs(view.scale - 1) < 0.05 ? '1:1' : `${view.scale.toFixed(1)}×`}
+          </Text>
+        </Pressable>
+        <Pressable style={[styles.toolButton, styles.toolButtonCompact]} onPress={() => zoomBy(1.4)}>
+          <Text style={styles.toolText}>＋</Text>
         </Pressable>
         <Pressable
           style={styles.toolButton}
@@ -856,6 +882,7 @@ const styles = StyleSheet.create({
   toolbar: {
     flexDirection: 'row',
     justifyContent: 'center',
+    flexWrap: 'wrap',
     gap: 4,
     padding: 4,
     backgroundColor: colors.surface,
@@ -871,6 +898,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
+  toolButtonCompact: { width: 30 },
   toolButtonActive: { backgroundColor: colors.accent },
   toolText: { color: colors.ink, fontWeight: '800', fontSize: 13 },
   toolTextActive: { color: '#fff' },

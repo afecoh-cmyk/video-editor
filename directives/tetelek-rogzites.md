@@ -18,7 +18,7 @@ A szerelő telefonon gyorsan felírja és módosítja:
 ## Elsődleges rajzlap-folyamat
 
 1. A projekt megnyitása a teljes képernyős rajzlapra visz.
-2. A rajzlap kockás; **két ujjal nagyítható és mozgatható**, így nagy csőrendszer is elfér.
+2. A rajzlap kockás; **két ujjal nagyítható és mozgatható** (kb. 0,35×–6×), a `− / ＋` gombbal is. Így nagy csőrendszer is elfér, a részlet pedig közel hozható.
    - **Mozgatás módban** egy ujjal húzható a teljes papír/rajz.
    - **Rajz módban** az egyujjas mozdulat vonalat rajzol, a papír nem csúszhat el.
 3. Egy rajzmozdulat automatikusan **két párhuzamos vonalat** készít: **VL / Vorlauf** (meleg előremenő, folytonos) + **RL / Rücklauf** (visszatérő, szaggatott).
