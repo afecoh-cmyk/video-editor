@@ -441,6 +441,40 @@ export function snapBranchPairToExisting(
   return hit ? applyBranchHit(pair, hit, size) : pair;
 }
 
+export type MovedPairResult =
+  | { action: 'merge'; targetPairId: string; vorlauf: CanvasPoint[]; ruecklauf: CanvasPoint[] }
+  | { action: 'branch'; vorlauf: CanvasPoint[]; ruecklauf: CanvasPoint[] }
+  | { action: 'move'; vorlauf: CanvasPoint[]; ruecklauf: CanvasPoint[] };
+
+/** Kijelölt pár elengedése: toldás a végre, T/Abzweig a szárra, vagy szabad helyen marad. */
+export function resolveMovedPair(
+  movedVl: CanvasPoint[],
+  movedRl: CanvasPoint[],
+  otherStrokes: CanvasStroke[],
+  size: Size,
+  scale: number
+): MovedPairResult {
+  const center = pairCenterline(movedVl, movedRl);
+  const endJoin = findPairEndJoin(center, otherStrokes, size, 80 / scale);
+  if (endJoin) {
+    const merged = mergeCenterlineOntoPair(center, endJoin, otherStrokes, size);
+    if (merged) {
+      return {
+        action: 'merge',
+        targetPairId: endJoin.pairId,
+        vorlauf: merged[0],
+        ruecklauf: merged[1],
+      };
+    }
+  }
+  const branch = findBranchHit(center, otherStrokes, size, 72 / scale);
+  if (branch) {
+    const [vorlauf, ruecklauf] = applyBranchHit([movedVl, movedRl], branch, size);
+    return { action: 'branch', vorlauf, ruecklauf };
+  }
+  return { action: 'move', vorlauf: movedVl, ruecklauf: movedRl };
+}
+
 export type DrawnStrokeResult =
   | { action: 'extend'; pairId: string; vorlauf: CanvasPoint[]; ruecklauf: CanvasPoint[] }
   | { action: 'add'; vorlauf: CanvasPoint[]; ruecklauf: CanvasPoint[] };

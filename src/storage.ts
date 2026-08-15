@@ -297,6 +297,54 @@ export async function extendCanvasStrokePair(
   await write(data);
 }
 
+function closestWorld(point: CanvasPoint, points: CanvasPoint[]): CanvasPoint {
+  if (points.length === 0) return point;
+  if (points.length === 1) return points[0];
+  let best = points[0];
+  let bestDistance = Number.POSITIVE_INFINITY;
+  for (let index = 1; index < points.length; index += 1) {
+    const a = points[index - 1];
+    const b = points[index];
+    const dx = b.x - a.x;
+    const dy = b.y - a.y;
+    const lengthSquared = dx * dx + dy * dy;
+    const ratio =
+      lengthSquared === 0
+        ? 0
+        : Math.max(0, Math.min(1, ((point.x - a.x) * dx + (point.y - a.y) * dy) / lengthSquared));
+    const x = a.x + ratio * dx;
+    const y = a.y + ratio * dy;
+    const distance = Math.hypot(point.x - x, point.y - y);
+    if (distance < bestDistance) {
+      best = { x, y };
+      bestDistance = distance;
+    }
+  }
+  return best;
+}
+
+export async function moveCanvasStrokePair(
+  pairId: string,
+  vorlaufPoints: CanvasPoint[],
+  ruecklaufPoints: CanvasPoint[]
+): Promise<void> {
+  const data = await read();
+  const pair = data.canvasStrokes.filter((stroke) => stroke.pairId === pairId);
+  const vorlauf = pair.find((stroke) => stroke.pipeKind === 'vorlauf') ?? pair[0];
+  const ruecklauf = pair.find((stroke) => stroke.pipeKind === 'ruecklauf') ?? pair[1];
+  if (!vorlauf || !ruecklauf) return;
+  data.canvasPairUndo = {
+    pairId,
+    projectId: vorlauf.projectId,
+    vorlauf: vorlauf.points.map((point) => ({ ...point })),
+    ruecklauf: ruecklauf.points.map((point) => ({ ...point })),
+    createdAt: new Date().toISOString(),
+  };
+  const projectId = applyPairPoints(data, pairId, vorlaufPoints, ruecklaufPoints);
+  if (projectId) touchProject(data, projectId);
+  await write(data);
+}
+
 export async function updateCanvasStrokePair(
   pairId: string,
   vorlaufPoints: CanvasPoint[],
@@ -306,6 +354,40 @@ export async function updateCanvasStrokePair(
   if (data.canvasPairUndo?.pairId === pairId) data.canvasPairUndo = null;
   const projectId = applyPairPoints(data, pairId, vorlaufPoints, ruecklaufPoints);
   if (projectId) touchProject(data, projectId);
+  await write(data);
+}
+
+export async function mergeCanvasStrokePair(
+  fromPairId: string,
+  intoPairId: string,
+  vorlaufPoints: CanvasPoint[],
+  ruecklaufPoints: CanvasPoint[]
+): Promise<void> {
+  const data = await read();
+  const from = data.canvasStrokes.filter((stroke) => stroke.pairId === fromPairId);
+  const into = data.canvasStrokes.filter((stroke) => stroke.pairId === intoPairId);
+  const fromVl = from.find((stroke) => stroke.pipeKind === 'vorlauf') ?? from[0];
+  const fromRl = from.find((stroke) => stroke.pipeKind === 'ruecklauf') ?? from[1];
+  const intoVl = into.find((stroke) => stroke.pipeKind === 'vorlauf') ?? into[0];
+  const intoRl = into.find((stroke) => stroke.pipeKind === 'ruecklauf') ?? into[1];
+  if (!intoVl || !intoRl) return;
+
+  applyPairPoints(data, intoPairId, vorlaufPoints, ruecklaufPoints);
+
+  const rehome = (fromStroke: CanvasStroke | undefined, intoStroke: CanvasStroke) => {
+    if (!fromStroke) return;
+    for (const marker of data.canvasMarkers.filter((item) => item.strokeId === fromStroke.id)) {
+      marker.strokeId = intoStroke.id;
+      const snapped = closestWorld(marker, intoStroke.points);
+      marker.x = snapped.x;
+      marker.y = snapped.y;
+    }
+  };
+  rehome(fromVl, intoVl);
+  rehome(fromRl, intoRl);
+  data.canvasStrokes = data.canvasStrokes.filter((stroke) => stroke.pairId !== fromPairId);
+  data.canvasPairUndo = null;
+  touchProject(data, intoVl.projectId);
   await write(data);
 }
 

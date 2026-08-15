@@ -38,7 +38,7 @@ Nincs Montagebogen a választóban.
    - Jobbra/balra toldáskor a új vonal a meglévő VL+RL pár **középvonalába fűződik**, és a sarok miterrel újraszámolódik. Nem jön létre külön, eltolt/ferde toldás.
    - Abzweig / kereszteződés egyenes szakaszon: a merőleges ág **ott marad a száron**, ahol a szerelő rárajzolta. Nem szabad a cső végére húzni.
    - Az X-átalakító lapon a típus (Muffe / Reduzir / Abzweig) mindig látszik; a DM lista a kiválasztott mező alatt nyílik, a választott méret megmarad.
-   - **Cső módban** koppintással kijelölhető egy vonalpár; a `− / +` vezérlővel 12–80 px között állítható a VL–RL távolság.
+   - **Cső módban** koppintással kijelölhető egy vonalpár (narancs). A kijelölt párt húzva áthelyezhető. Másik pár **végére** engedve beolvad; a **szárra** (nem a végére) engedve Abzweig / T marad. A `− / +` vezérlővel 12–80 px között állítható a VL–RL távolság.
    - A vonalhoz kapcsolt X-eknek együtt kell mozogniuk a távolság állításakor.
 4. **Rajz** az alapmód; az **X módot külön aktiválni kell**.
 5. X módban csak rövid, legfeljebb 10 px-t mozduló koppintás rak le X-et; húzás/pinch után nem. A koppintásnak a VL/RL vonaltól legfeljebb kb. **3 mm-re (12 px)** kell lennie, különben nem kerül le X.

@@ -22,6 +22,7 @@ import type { RootStackParamList } from '../navigation';
 import {
   makePipePair,
   resolveDrawnStroke,
+  resolveMovedPair,
   simplifyPipePath,
   snapPipePathAngles,
 } from '../pipeGeometry';
@@ -40,6 +41,8 @@ import {
   getCanvas,
   getProject,
   listParts,
+  mergeCanvasStrokePair,
+  moveCanvasStrokePair,
   undoCanvasAction,
   updateCanvasStrokePair,
 } from '../storage';
@@ -82,6 +85,7 @@ export function DrawingBoardScreen({ navigation, route }: Props) {
   const [selectedPairId, setSelectedPairId] = useState<string | null>(null);
   const [selectedGroupKey, setSelectedGroupKey] = useState<MarkerGroupKey | null>(null);
   const [pipeSpacing, setPipeSpacing] = useState(28);
+  const [pipeDragOffset, setPipeDragOffset] = useState<CanvasPoint | null>(null);
   const [kind, setKind] = useState<PartKind>('muffe');
   const [diameter, setDiameter] = useState('315');
   const [diameterTo, setDiameterTo] = useState('250');
@@ -100,6 +104,10 @@ export function DrawingBoardScreen({ navigation, route }: Props) {
     startedAt: number;
   } | null>(null);
   const pipeTapRef = useRef<{ x: number; y: number; moved: boolean } | null>(null);
+  const pipeDragOffsetRef = useRef<CanvasPoint | null>(null);
+  const selectedPairIdRef = useRef<string | null>(null);
+  const strokesRef = useRef<CanvasStroke[]>([]);
+  const finishPipeMoveRef = useRef<(dx: number, dy: number) => Promise<void>>(async () => {});
   const panDragRef = useRef<{
     x: number;
     y: number;
@@ -112,9 +120,12 @@ export function DrawingBoardScreen({ navigation, route }: Props) {
   const markerPlacementRef = useRef<(x: number, y: number) => Promise<void>>(async () => {});
   const openConvertRef = useRef<() => void>(() => {});
   const pipeSelectionRef = useRef<(x: number, y: number) => void>(() => {});
+  const clearPipeDragRef = useRef<() => void>(() => {});
   const suppressTapUntilRef = useRef(0);
   const lastMarkerAtRef = useRef(0);
   const viewRef = useRef(view);
+  selectedPairIdRef.current = selectedPairId;
+  strokesRef.current = strokes;
   const pinchRef = useRef<{
     distance: number;
     startScale: number;
@@ -189,6 +200,8 @@ export function DrawingBoardScreen({ navigation, route }: Props) {
       markerTapRef.current = null;
       pipeTapRef.current = null;
       panDragRef.current = null;
+      pipeDragOffsetRef.current = null;
+      clearPipeDragRef.current();
       suppressTapUntilRef.current = Date.now() + 400;
       drawingRef.current = [];
       setDraftPoints([]);
@@ -304,6 +317,15 @@ export function DrawingBoardScreen({ navigation, route }: Props) {
               event.nativeEvent.locationY - pipeTapRef.current.y
             );
             if (movement > 10) pipeTapRef.current.moved = true;
+            if (pipeTapRef.current.moved && selectedPairIdRef.current) {
+              const scale = viewRef.current.scale;
+              const offset = {
+                x: (event.nativeEvent.locationX - pipeTapRef.current.x) / (size.width * scale),
+                y: (event.nativeEvent.locationY - pipeTapRef.current.y) / (size.height * scale),
+              };
+              pipeDragOffsetRef.current = offset;
+              setPipeDragOffset(offset);
+            }
             return;
           }
           if (pinchRef.current || mode !== 'draw') return;
@@ -340,7 +362,14 @@ export function DrawingBoardScreen({ navigation, route }: Props) {
           }
           if (mode === 'pipe') {
             const tap = pipeTapRef.current;
+            const offset = pipeDragOffsetRef.current;
             pipeTapRef.current = null;
+            pipeDragOffsetRef.current = null;
+            setPipeDragOffset(null);
+            if (tap && tap.moved && offset && selectedPairIdRef.current) {
+              await finishPipeMoveRef.current(offset.x, offset.y);
+              return;
+            }
             if (tap && !tap.moved && Date.now() >= suppressTapUntilRef.current) {
               pipeSelectionRef.current(tap.x, tap.y);
             }
@@ -366,6 +395,8 @@ export function DrawingBoardScreen({ navigation, route }: Props) {
           markerTapRef.current = null;
           pipeTapRef.current = null;
           panDragRef.current = null;
+          pipeDragOffsetRef.current = null;
+          setPipeDragOffset(null);
           drawingRef.current = [];
           setDraftPoints([]);
         },
@@ -475,7 +506,7 @@ export function DrawingBoardScreen({ navigation, route }: Props) {
   const selectPipeAt = (screenX: number, screenY: number) => {
     const hit = nearestPointOnPipe(screenX, screenY);
     if (!hit || hit.distance > 28 || !hit.pairId) {
-      Alert.alert('Nincs cső kijelölve', 'Koppints közelebb a VL vagy RL vonalhoz.');
+      setSelectedPairId(null);
       return;
     }
     const pair = strokes.filter((stroke) => stroke.pairId === hit.pairId);
@@ -490,6 +521,38 @@ export function DrawingBoardScreen({ navigation, route }: Props) {
     setPipeSpacing(Math.round(spacing));
   };
   pipeSelectionRef.current = selectPipeAt;
+
+  const finishPipeMove = async (dx: number, dy: number) => {
+    const pairId = selectedPairIdRef.current;
+    if (!pairId) return;
+    const pair = strokesRef.current.filter((stroke) => stroke.pairId === pairId);
+    const vl = pair.find((stroke) => stroke.pipeKind === 'vorlauf');
+    const rl = pair.find((stroke) => stroke.pipeKind === 'ruecklauf');
+    if (!vl || !rl) return;
+    const movedVl = vl.points.map((point) => ({ x: point.x + dx, y: point.y + dy }));
+    const movedRl = rl.points.map((point) => ({ x: point.x + dx, y: point.y + dy }));
+    const other = strokesRef.current.filter((stroke) => stroke.pairId !== pairId);
+    const resolved = resolveMovedPair(movedVl, movedRl, other, size, viewRef.current.scale);
+    if (resolved.action === 'merge') {
+      await mergeCanvasStrokePair(pairId, resolved.targetPairId, resolved.vorlauf, resolved.ruecklauf);
+      setSelectedPairId(resolved.targetPairId);
+    } else {
+      await moveCanvasStrokePair(pairId, resolved.vorlauf, resolved.ruecklauf);
+    }
+    if (resolved.vorlauf[0] && resolved.ruecklauf[0]) {
+      setPipeSpacing(
+        Math.round(
+          Math.hypot(
+            (resolved.vorlauf[0].x - resolved.ruecklauf[0].x) * size.width,
+            (resolved.vorlauf[0].y - resolved.ruecklauf[0].y) * size.height
+          )
+        )
+      );
+    }
+    await load();
+  };
+  finishPipeMoveRef.current = finishPipeMove;
+  clearPipeDragRef.current = () => setPipeDragOffset(null);
 
   const changePipeSpacing = async (delta: number) => {
     if (!selectedPairId) return;
@@ -541,6 +604,8 @@ export function DrawingBoardScreen({ navigation, route }: Props) {
 
   const changeMode = (next: Mode) => {
     setMode(next);
+    pipeDragOffsetRef.current = null;
+    setPipeDragOffset(null);
     if (next !== 'pipe') setSelectedPairId(null);
   };
 
@@ -577,6 +642,72 @@ export function DrawingBoardScreen({ navigation, route }: Props) {
     (_, index) => gridStartY + index * gridSpacing
   );
   const draftPair = draftPoints.length ? makePipePair(draftPoints, size) : null;
+  const pipeDisplay = useMemo(() => {
+    if (!pipeDragOffset || !selectedPairId) {
+      return { strokes, mergeTargetId: null as string | null, hint: null as 'merge' | 'branch' | 'move' | null };
+    }
+    const pair = strokes.filter((stroke) => stroke.pairId === selectedPairId);
+    const vl = pair.find((stroke) => stroke.pipeKind === 'vorlauf');
+    const rl = pair.find((stroke) => stroke.pipeKind === 'ruecklauf');
+    if (!vl || !rl) {
+      return { strokes, mergeTargetId: null as string | null, hint: null as 'merge' | 'branch' | 'move' | null };
+    }
+    const movedVl = vl.points.map((point) => ({
+      x: point.x + pipeDragOffset.x,
+      y: point.y + pipeDragOffset.y,
+    }));
+    const movedRl = rl.points.map((point) => ({
+      x: point.x + pipeDragOffset.x,
+      y: point.y + pipeDragOffset.y,
+    }));
+    const other = strokes.filter((stroke) => stroke.pairId !== selectedPairId);
+    const resolved = resolveMovedPair(movedVl, movedRl, other, size, view.scale);
+    if (resolved.action === 'merge') {
+      return {
+        hint: 'merge' as const,
+        mergeTargetId: resolved.targetPairId,
+        strokes: strokes.flatMap((stroke) => {
+          if (stroke.pairId === selectedPairId) return [];
+          if (stroke.pairId === resolved.targetPairId) {
+            return [
+              {
+                ...stroke,
+                points: stroke.pipeKind === 'ruecklauf' ? resolved.ruecklauf : resolved.vorlauf,
+              },
+            ];
+          }
+          return [stroke];
+        }),
+      };
+    }
+    return {
+      hint: resolved.action,
+      mergeTargetId: null as string | null,
+      strokes: strokes.map((stroke) => {
+        if (stroke.pairId !== selectedPairId) return stroke;
+        return {
+          ...stroke,
+          points: stroke.pipeKind === 'ruecklauf' ? resolved.ruecklauf : resolved.vorlauf,
+        };
+      }),
+    };
+  }, [pipeDragOffset, selectedPairId, size, strokes, view.scale]);
+  const movingMarkerIds = useMemo(() => {
+    if (!selectedPairId) return new Set<string>();
+    const strokeIds = new Set(
+      strokes.filter((stroke) => stroke.pairId === selectedPairId).map((stroke) => stroke.id)
+    );
+    return new Set(
+      markers.filter((marker) => marker.strokeId && strokeIds.has(marker.strokeId)).map((marker) => marker.id)
+    );
+  }, [markers, selectedPairId, strokes]);
+  const markerDragShift =
+    pipeDragOffset && pipeDisplay.hint !== 'merge'
+      ? {
+          x: pipeDragOffset.x * size.width * view.scale,
+          y: pipeDragOffset.y * size.height * view.scale,
+        }
+      : { x: 0, y: 0 };
 
   const confirmProjectDelete = () => {
     setProjectMenuOpen(false);
@@ -625,7 +756,13 @@ export function DrawingBoardScreen({ navigation, route }: Props) {
 
       {mode === 'pipe' && selectedPairId ? (
         <View style={styles.spacingBar}>
-          <Text style={styles.spacingLabel}>VL–RL távolság</Text>
+          <Text style={styles.spacingLabel}>
+            {pipeDisplay.hint === 'merge'
+              ? 'Végre olvad'
+              : pipeDisplay.hint === 'branch'
+                ? 'Abzweig a száron'
+                : 'Húzd a csövet'}
+          </Text>
           <AnimatedPressable style={styles.spacingButton} onPress={() => void changePipeSpacing(-4)}>
             <Text style={styles.spacingButtonText}>−</Text>
           </AnimatedPressable>
@@ -669,7 +806,7 @@ export function DrawingBoardScreen({ navigation, route }: Props) {
             />
           ))}
           {[
-            ...strokes,
+            ...pipeDisplay.strokes,
             ...(draftPair
               ? [
                   {
@@ -690,8 +827,16 @@ export function DrawingBoardScreen({ navigation, route }: Props) {
               <Path
                 key={stroke.id}
                 d={pathFor(stroke.points)}
-                stroke={stroke.pairId === selectedPairId ? colors.accent : '#154d78'}
-                strokeWidth={stroke.pairId === selectedPairId ? drawingWidth + 2 : drawingWidth}
+                stroke={
+                  stroke.pairId === selectedPairId || stroke.pairId === pipeDisplay.mergeTargetId
+                    ? colors.accent
+                    : '#154d78'
+                }
+                strokeWidth={
+                  stroke.pairId === selectedPairId || stroke.pairId === pipeDisplay.mergeTargetId
+                    ? drawingWidth + 2
+                    : drawingWidth
+                }
                 strokeDasharray={
                   stroke.pipeKind === 'ruecklauf'
                     ? `${12 * symbolScale} ${10 * symbolScale}`
@@ -706,6 +851,8 @@ export function DrawingBoardScreen({ navigation, route }: Props) {
 
         {laidOutMarkers.map((item) => {
           const selected = selectedGroupKey === item.groupKey;
+          if (pipeDisplay.hint === 'merge' && movingMarkerIds.has(item.id)) return null;
+          const shift = movingMarkerIds.has(item.id) ? markerDragShift : { x: 0, y: 0 };
           return (
             <View
               key={item.id}
@@ -714,7 +861,7 @@ export function DrawingBoardScreen({ navigation, route }: Props) {
                 styles.xMark,
                 item.open ? styles.xMarkOpen : styles.xMarkDone,
                 selected && styles.xMarkSelected,
-                { left: item.pipeX - 9, top: item.pipeY - 9 },
+                { left: item.pipeX - 9 + shift.x, top: item.pipeY - 9 + shift.y },
               ]}
             >
               <Text
@@ -778,8 +925,12 @@ export function DrawingBoardScreen({ navigation, route }: Props) {
             : mode === 'mark'
               ? `${openMarkers.length} aktuális X · koppints X-re vagy tegyél újat`
               : selectedPairId
-                ? 'Cső kijelölve · állítsd a VL–RL távolságot'
-                : 'Cső mód · koppints egy vonalpárra'}
+                ? pipeDisplay.hint === 'merge'
+                  ? 'Elengedve a végre olvad'
+                  : pipeDisplay.hint === 'branch'
+                    ? 'Elengedve Abzweig a száron marad'
+                    : 'Húzd a csövet · végre olvad, szárra Abzweig'
+                : 'Cső mód · koppints egy vonalpárra, majd húzd'}
         </Text>
         <AnimatedPressable onPress={() => navigation.navigate('MuffList', { projectId })}>
           <Text style={styles.listLink}>Lista ({parts.length})</Text>
