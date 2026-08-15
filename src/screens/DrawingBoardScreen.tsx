@@ -608,8 +608,18 @@ export function DrawingBoardScreen({ navigation, route }: Props) {
             ...strokes,
             ...(draftPair
               ? [
-                  { id: 'draft-vl', points: draftPair[0], pipeKind: 'vorlauf' as const },
-                  { id: 'draft-rl', points: draftPair[1], pipeKind: 'ruecklauf' as const },
+                  {
+                    id: 'draft-vl',
+                    points: draftPair[0],
+                    pipeKind: 'vorlauf' as const,
+                    pairId: undefined,
+                  },
+                  {
+                    id: 'draft-rl',
+                    points: draftPair[1],
+                    pipeKind: 'ruecklauf' as const,
+                    pairId: undefined,
+                  },
                 ]
               : []),
           ].map((stroke) => (
