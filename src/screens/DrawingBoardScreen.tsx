@@ -64,7 +64,7 @@ function makePipePair(
   points: CanvasPoint[],
   size: { width: number; height: number }
 ): [CanvasPoint[], CanvasPoint[]] {
-  return [offsetPipe(points, -8, size), offsetPipe(points, 8, size)];
+  return [offsetPipe(points, -14, size), offsetPipe(points, 14, size)];
 }
 
 export function DrawingBoardScreen({ navigation, route }: Props) {
