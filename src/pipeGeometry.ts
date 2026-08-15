@@ -219,34 +219,6 @@ function interpolate(points: CanvasPoint[], segmentIndex: number, ratio: number)
   };
 }
 
-export function pipeFrameAtPoint(
-  point: CanvasPoint,
-  stroke: CanvasStroke,
-  partner: CanvasStroke | undefined,
-  size: Size
-): { tangent: { x: number; y: number }; outward: { x: number; y: number } } {
-  const hit = closestOnPolyline(point, stroke.points, size);
-  let tangent = { x: 1, y: 0 };
-  if (hit) {
-    const start = stroke.points[hit.segmentIndex];
-    const end = stroke.points[hit.segmentIndex + 1] ?? start;
-    tangent = segmentDirection(start, end, size);
-  }
-  let outward = { x: -tangent.y, y: tangent.x };
-  if (partner && partner.points.length > 1) {
-    const other = closestOnPolyline(point, partner.points, size);
-    if (other) {
-      const vx = (point.x - other.point.x) * size.width;
-      const vy = (point.y - other.point.y) * size.height;
-      const length = Math.hypot(vx, vy);
-      if (length > 0.001) outward = { x: vx / length, y: vy / length };
-    }
-  } else if (stroke.pipeKind === 'ruecklauf') {
-    outward = { x: tangent.y, y: -tangent.x };
-  }
-  return { tangent, outward };
-}
-
 function segmentDirection(from: CanvasPoint, to: CanvasPoint, size: Size): { x: number; y: number } {
   const x = (to.x - from.x) * size.width;
   const y = (to.y - from.y) * size.height;
