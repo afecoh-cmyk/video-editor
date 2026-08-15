@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { createElement, useCallback, useMemo, useRef, useState, type CSSProperties } from 'react';
 import {
   Alert,
   Modal,
@@ -66,7 +66,10 @@ export function DrawingBoardScreen({ navigation, route }: Props) {
   const [kind, setKind] = useState<PartKind>('muffe');
   const [diameter, setDiameter] = useState('315');
   const [diameterTo, setDiameterTo] = useState('250');
-  const [dimensionPicker, setDimensionPicker] = useState<'primary' | 'secondary' | null>(null);
+  const diameterRef = useRef(diameter);
+  const diameterToRef = useRef(diameterTo);
+  diameterRef.current = diameter;
+  diameterToRef.current = diameterTo;
   const [view, setView] = useState<ViewTransform>({ scale: 1, offsetX: 0, offsetY: 0 });
   const drawingRef = useRef<CanvasPoint[]>([]);
   const markerTapRef = useRef<{
@@ -448,14 +451,13 @@ export function DrawingBoardScreen({ navigation, route }: Props) {
       Alert.alert('Nincs új X', 'Először tegyél le X-eket az aktuális muff-csoporthoz.');
       return;
     }
-    setDimensionPicker(null);
     setModalOpen(true);
   };
   openConvertRef.current = openConvert;
 
   const saveConversion = async () => {
-    const dm = Number(diameter);
-    const dmTo = Number(diameterTo);
+    const dm = Number(diameterRef.current);
+    const dmTo = Number(diameterToRef.current);
     const needsSecond = kind !== 'muffe';
     if (!Number.isFinite(dm) || dm <= 0 || (needsSecond && (!Number.isFinite(dmTo) || dmTo <= 0))) {
       Alert.alert('Hibás DM', 'Adj meg érvényes átmérőt.');
@@ -616,17 +618,27 @@ export function DrawingBoardScreen({ navigation, route }: Props) {
 
         {markers.map((marker) => {
           const part = marker.partId ? partsById.get(marker.partId) : null;
+          const markerWidth = part ? 48 : 18;
+          const markerHeight = part ? 26 : 18;
           return (
             <View
               key={marker.id}
+              pointerEvents="none"
               style={[
                 styles.marker,
+                part ? styles.completedMarker : styles.openMarker,
                 {
-                  left: marker.x * size.width * view.scale + view.offsetX - (part ? 29 : 14),
-                  top: marker.y * size.height * view.scale + view.offsetY - (part ? 19 : 14),
+                  width: markerWidth,
+                  height: markerHeight,
+                  left:
+                    marker.x * size.width * view.scale +
+                    view.offsetX -
+                    markerWidth / 2,
+                  top:
+                    marker.y * size.height * view.scale +
+                    view.offsetY -
+                    markerHeight / 2,
                 },
-                part && styles.completedMarker,
-                { transform: [{ scale: symbolScale }] },
               ]}
             >
               {part ? (
@@ -734,23 +746,14 @@ export function DrawingBoardScreen({ navigation, route }: Props) {
         visible={modalOpen}
         transparent
         animationType="slide"
-        onRequestClose={() => {
-          setDimensionPicker(null);
-          setModalOpen(false);
-        }}
+        onRequestClose={() => setModalOpen(false)}
       >
         <View style={styles.backdrop} pointerEvents="box-none">
-          <Pressable
-            style={styles.backdropDismiss}
-            onPress={() => {
-              setDimensionPicker(null);
-              setModalOpen(false);
-            }}
-          />
+          <Pressable style={styles.backdropDismiss} onPress={() => setModalOpen(false)} />
           <View style={styles.sheet} pointerEvents="auto">
             <Text style={styles.sheetTitle}>{openMarkers.length} aktuális X átalakítása</Text>
             <View style={styles.selectedSummary}>
-              <Text style={styles.selectedSummaryLabel}>Kiválasztva</Text>
+              <Text style={styles.selectedSummaryLabel}>Kijelölt X mérete</Text>
               <Text style={styles.selectedSummaryValue}>
                 {partKindLabel(kind)}
                 {' · '}
@@ -767,10 +770,7 @@ export function DrawingBoardScreen({ navigation, route }: Props) {
                 <Pressable
                   key={item.id}
                   style={[styles.chip, kind === item.id && styles.chipActive]}
-                  onPress={() => {
-                    setKind(item.id);
-                    if (item.id === 'muffe') setDimensionPicker(null);
-                  }}
+                  onPress={() => setKind(item.id)}
                 >
                   <Text style={[styles.chipText, kind === item.id && styles.chipTextActive]}>
                     {item.label}
@@ -782,28 +782,14 @@ export function DrawingBoardScreen({ navigation, route }: Props) {
             <DimensionPicker
               label={kind === 'abzweig' ? 'Haupt DM' : 'DM'}
               value={diameter}
-              open={dimensionPicker === 'primary'}
-              onToggle={() =>
-                setDimensionPicker((current) => (current === 'primary' ? null : 'primary'))
-              }
-              onSelect={(dm) => {
-                setDiameter(dm);
-                setDimensionPicker(null);
-              }}
+              onSelect={setDiameter}
             />
 
             {kind !== 'muffe' ? (
               <DimensionPicker
                 label={kind === 'reduzir' ? 'Cél DM' : 'Abzweig DM'}
                 value={diameterTo}
-                open={dimensionPicker === 'secondary'}
-                onToggle={() =>
-                  setDimensionPicker((current) => (current === 'secondary' ? null : 'secondary'))
-                }
-                onSelect={(dm) => {
-                  setDiameterTo(dm);
-                  setDimensionPicker(null);
-                }}
+                onSelect={setDiameterTo}
               />
             ) : null}
 
@@ -820,54 +806,65 @@ export function DrawingBoardScreen({ navigation, route }: Props) {
   );
 }
 
+const webSelectStyle: CSSProperties = {
+  width: '100%',
+  height: 52,
+  fontSize: 22,
+  fontWeight: 800,
+  borderRadius: 8,
+  border: '2px solid #C45C26',
+  backgroundColor: '#fff3e6',
+  color: '#1A2332',
+  padding: '0 12px',
+};
+
 function DimensionPicker({
   label,
   value,
-  open,
-  onToggle,
   onSelect,
 }: {
   label: string;
   value: string;
-  open: boolean;
-  onToggle: () => void;
   onSelect: (dm: string) => void;
 }) {
   return (
     <View style={styles.dimensionBlock}>
       <Text style={styles.label}>{label}</Text>
-      <Pressable
-        style={[styles.dimensionField, open && styles.dimensionFieldOpen]}
-        onPress={onToggle}
-      >
-        <Text style={styles.dimensionValue}>DM {value}</Text>
-        <Text style={styles.dimensionArrow}>{open ? '⌃' : '⌄'}</Text>
-      </Pressable>
-      {open ? (
-        <ScrollView
-          style={styles.dimensionList}
-          nestedScrollEnabled
-          keyboardShouldPersistTaps="always"
-        >
-          {COMMON_DIAMETERS.map((dm) => {
-            const selected = value === String(dm);
-            return (
-              <Pressable
-                key={dm}
-                style={[styles.dimensionRow, selected && styles.dimensionRowActive]}
-                onPress={() => onSelect(String(dm))}
-              >
-                <Text
-                  style={[styles.dimensionRowText, selected && styles.dimensionRowTextActive]}
-                >
-                  DM {dm}
-                </Text>
-                {selected ? <Text style={styles.dimensionCheck}>✓</Text> : null}
-              </Pressable>
-            );
-          })}
-        </ScrollView>
-      ) : null}
+      {Platform.OS === 'web'
+        ? createElement(
+            'select',
+            {
+              value,
+              onChange: (event: { target: { value: string } }) => onSelect(event.target.value),
+              style: webSelectStyle,
+            },
+            COMMON_DIAMETERS.map((dm) =>
+              createElement('option', { key: dm, value: String(dm) }, `DM ${dm}`)
+            )
+          )
+        : (
+          <View style={styles.dimensionList}>
+            <ScrollView nestedScrollEnabled keyboardShouldPersistTaps="always">
+              {COMMON_DIAMETERS.map((dm) => {
+                const selected = value === String(dm);
+                return (
+                  <Pressable
+                    key={dm}
+                    style={[styles.dimensionRow, selected && styles.dimensionRowActive]}
+                    onPress={() => onSelect(String(dm))}
+                  >
+                    <Text
+                      style={[styles.dimensionRowText, selected && styles.dimensionRowTextActive]}
+                    >
+                      DM {dm}
+                    </Text>
+                    {selected ? <Text style={styles.dimensionCheck}>✓</Text> : null}
+                  </Pressable>
+                );
+              })}
+            </ScrollView>
+          </View>
+        )}
     </View>
   );
 }
@@ -975,30 +972,25 @@ const styles = StyleSheet.create({
   helpText: { color: '#9ba6ab', textAlign: 'center', fontSize: 15, lineHeight: 21 },
   marker: {
     position: 'absolute',
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: '#fff',
-    borderWidth: 2,
-    borderColor: colors.danger,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOpacity: 0.15,
-    shadowRadius: 3,
-    elevation: 3,
+    overflow: 'hidden',
+  },
+  openMarker: {
+    borderRadius: 9,
+    backgroundColor: '#fff',
+    borderWidth: 1.5,
+    borderColor: colors.danger,
   },
   completedMarker: {
-    width: 58,
-    height: 38,
-    borderRadius: 8,
-    borderWidth: 2,
+    borderRadius: 6,
+    borderWidth: 1.5,
     borderColor: colors.total,
     backgroundColor: '#eaf8f0',
   },
-  xText: { color: colors.danger, fontSize: 22, fontWeight: '900', lineHeight: 24 },
-  completedType: { color: colors.total, fontSize: 9, fontWeight: '800' },
-  completedDm: { color: colors.ink, fontSize: 12, fontWeight: '900' },
+  xText: { color: colors.danger, fontSize: 13, fontWeight: '900', lineHeight: 14 },
+  completedType: { color: colors.total, fontSize: 7, fontWeight: '800', lineHeight: 8 },
+  completedDm: { color: colors.ink, fontSize: 9, fontWeight: '900', lineHeight: 10 },
   status: {
     minHeight: 48,
     paddingHorizontal: spacing.md,
