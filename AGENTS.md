@@ -88,5 +88,6 @@ Ha elromlik valami:
 3. A változtatás először külön fejlesztői ágon és PR-ban marad.
 4. **Soha ne merge-eld vagy pushold a változtatást a `main` ágra a felhasználó egyértelmű engedélye nélkül.**
 5. A `main`-re csak akkor kerülhet, ha a felhasználó a dev linken kipróbálta és kimondottan jóváhagyta (pl. „mehet mainra”, „merge”).
+6. A `main` a letölthető app: GitHub Pages `https://afecoh-cmyk.github.io/video-editor/` (workflow: `.github/workflows/web-deploy.yml`).
 
 Légy gyakorlatias. Légy megbízható. A bajsztelep a mérce.

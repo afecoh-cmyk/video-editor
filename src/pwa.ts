@@ -51,12 +51,21 @@ export function registerWebApp() {
   });
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
-      void navigator.serviceWorker.register('/sw.js');
+      void navigator.serviceWorker.register(withWebBase('/sw.js'));
     });
   }
 }
 
+function webBasePath(): string {
+  return (process.env.EXPO_PUBLIC_WEB_BASE_PATH || '').replace(/\/$/, '');
+}
+
+function withWebBase(path: string): string {
+  const rel = path.startsWith('/') ? path : `/${path}`;
+  return `${webBasePath()}${rel}`;
+}
+
 export function currentAppUrl(): string {
   if (typeof window === 'undefined') return '';
-  return window.location.origin;
+  return `${window.location.origin}${webBasePath()}`;
 }

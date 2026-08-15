@@ -120,7 +120,7 @@ A papír **Ohmmeter / MH3** mezője ehhez kapcsolódik: a projekten jelezni kell
 
 ## Telepítés (PWA)
 
-A webes Muffe Plan **Progressive Web App**: a jobb felső **Letöltés** gombbal a telefon kezdőképernyőjére tehető. Offline is működik, nincs külön Play/App Store telepítő az MVP-ben.
+A webes Muffe Plan **Progressive Web App**: a jobb felső **Letöltés** gombbal a telefon kezdőképernyőjére tehető. A tartós cím a `main` ág: https://afecoh-cmyk.github.io/video-editor/ — offline is működik, nincs külön Play/App Store telepítő az MVP-ben.
 
 ## Sikerkritériumok
 

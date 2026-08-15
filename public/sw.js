@@ -1,10 +1,10 @@
-const CACHE = 'muffe-plan-pwa-v1';
+const CACHE = 'muffe-plan-pwa-v2';
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
     caches
       .open(CACHE)
-      .then((cache) => cache.addAll(['/', '/index.html', '/manifest.webmanifest']))
+      .then((cache) => cache.addAll(['./', './index.html', './manifest.webmanifest']))
       .then(() => self.skipWaiting())
   );
 });
