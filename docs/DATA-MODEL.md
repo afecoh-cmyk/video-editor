@@ -36,6 +36,24 @@ Egy tétel a projekten — muff, reduzir vagy abzweig.
 - Reduzir DM 315→250 · 2 Stk.
 - Abzweig DM 315 / Abz. 125 · 1 Stk.
 
+## Entity: WireCheck (későbbi — nem MVP)
+
+Egy szakasz drót / ellenállás mérése (elejétől végéig, az összes muffon át).
+
+| Mező | Típus | Megjegyzés |
+|---|---|---|
+| id | uuid | |
+| projectId | uuid | FK → Project |
+| system | enum | `nor` \| `brandes` |
+| phase | enum | `before_foam` \| `after_foam` (samponozás előtt / után) |
+| circuit | enum | `vorlauf` \| `ruecklauf` |
+| valueOhm | number? | Mért érték (ha van) |
+| ok | boolean? | Szerelő ítélete: jó / nem jó |
+| note | string? | Hol gyanús, mi történt |
+| measuredAt | datetime | |
+
+A Project később kaphat `wireSystem` mezőt (`nor` \| `brandes`), hogy a szakasz alapértelmezett rendszere meglegyen.
+
 ## Tárolás (MVP)
 
 - AsyncStorage (`muffe-plan:v2`), v1 muff adatok automatikus migrációval

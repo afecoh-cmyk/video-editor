@@ -18,12 +18,14 @@ Letölthető mobilapp, amivel a szerelő **nap végére** egyértelműen látja,
 
 ## Nem kerül bele az első körben
 
-- Ellenállásmérési tábla
+- **Drót mérés** (ellenállás / hurok) — samponozás előtt–után, Vorlauf/Rücklauf; rendszer: **NOR** vs **Brand/BRANDES** (lásd `docs/PRODUCT.md` §4)
 - Skicc / rajzolás
 - Digitális aláírás
 - PDF BRUGG-layout
 - Fiók / felhő szinkron
 - Többnyelvű UI (először német mezőnevekkel, magyar segédszövegekkel OK)
+
+> Az MVP lényege marad: nap közben muff/reduzir/abzweig felírás +/−-szal, nap végén „ennyi volt”. A drót mérés **ráépül** erre (tudni kell, hány kötés van a szakaszon), de külön funkció.
 
 ## Technikai irány (döntés)
 

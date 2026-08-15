@@ -70,9 +70,33 @@ A papír **Druckprobenprotokoll** táblája:
 - Globális napi összesítés (összes mai projekt)
 - Egy gomb: „Napi összefoglaló”
 
-### 4. Későbbi / nem MVP
+### 4. Drót mérés (későbbi kör — nem az első MVP)
 
-- Ellenállásmérés tábla (Vorlauf / Rücklauf, Neu / Bestand)
+A muff darabszám **nem** a drót mérés. A drót külön lépés:
+
+1. Az összes nyitott muffon a drót össze van kötve **elejétől a végéig** (egy mérés a teljes szakaszra).
+2. **Samponozás / schäumen előtt** rámérek → érték rögzítése (jó-e a drót).
+3. **Utána** újra rámérek → összevetés (változott-e, szakadt-e, nedvesség stb.).
+4. Hiba esetén: „itt meg ott bármi lehet” — a hiba a szakasz bármely muffjánál / szakaszánál lehet; a muff-lista segít tudni, *hány* kötés van a vonalon.
+
+**Rendszerfajták (projekt / szakasz szintjén választandó):**
+
+| Rendszer | Mit jelent a terepen |
+|---|---|
+| **NOR** (nordisches System, Cu) | Réz érzékelőhurok — egyszerűbb / más méréshatár |
+| **Brand / BRANDES** (NiCr) | Brandes szenzorhurok — MH-szint, hurokhossz stb. |
+
+A papír **Ohmmeter / MH3** mezője ehhez kapcsolódik: a projekten jelezni kell, **melyik rendszer** van (NOR vs Brand), mert a mért értékek és a „mi a jó” ettől függ.
+
+**App-ban később (nem most):**
+
+- Vorlauf / Rücklauf mérések
+- Előtte / utána párok (samponozás előtt–után)
+- Rendszer: `nor` \| `brandes`
+- Opcionális megjegyzés (hol gyanús)
+
+### 5. Egyéb későbbi / nem MVP
+
 - Skicc / Verdrahtungsschema (rajzolás, X a muffokra)
 - Digitális aláírás + BRUGG monteur mező
 - PDF export a papír formához hasonló elrendezéssel
