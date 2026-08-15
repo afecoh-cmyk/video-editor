@@ -448,6 +448,7 @@ export function DrawingBoardScreen({ navigation, route }: Props) {
       Alert.alert('Nincs új X', 'Először tegyél le X-eket az aktuális muff-csoporthoz.');
       return;
     }
+    setDimensionPicker(null);
     setModalOpen(true);
   };
   openConvertRef.current = openConvert;
@@ -621,8 +622,8 @@ export function DrawingBoardScreen({ navigation, route }: Props) {
               style={[
                 styles.marker,
                 {
-                  left: marker.x * size.width * view.scale + view.offsetX - (part ? 26 : 14),
-                  top: marker.y * size.height * view.scale + view.offsetY - (part ? 17 : 14),
+                  left: marker.x * size.width * view.scale + view.offsetX - (part ? 29 : 14),
+                  top: marker.y * size.height * view.scale + view.offsetY - (part ? 19 : 14),
                 },
                 part && styles.completedMarker,
                 { transform: [{ scale: symbolScale }] },
@@ -738,27 +739,38 @@ export function DrawingBoardScreen({ navigation, route }: Props) {
           setModalOpen(false);
         }}
       >
-        <View style={styles.backdrop}>
+        <View style={styles.backdrop} pointerEvents="box-none">
           <Pressable
-            style={StyleSheet.absoluteFill}
+            style={styles.backdropDismiss}
             onPress={() => {
               setDimensionPicker(null);
               setModalOpen(false);
             }}
           />
-          <View style={styles.sheet}>
+          <View style={styles.sheet} pointerEvents="auto">
             <Text style={styles.sheetTitle}>{openMarkers.length} aktuális X átalakítása</Text>
-            <Text style={styles.sheetHint}>
-              Először a típust válaszd (Muffe / Reduzir / Abzweig), utána a DM-et. A kiválasztott
-              méret megmarad.
-            </Text>
+            <View style={styles.selectedSummary}>
+              <Text style={styles.selectedSummaryLabel}>Kiválasztva</Text>
+              <Text style={styles.selectedSummaryValue}>
+                {partKindLabel(kind)}
+                {' · '}
+                {kind === 'muffe'
+                  ? `DM ${diameter}`
+                  : kind === 'reduzir'
+                    ? `DM ${diameter}→${diameterTo}`
+                    : `DM ${diameter} / Abz. ${diameterTo}`}
+              </Text>
+            </View>
 
             <View style={styles.chips}>
               {PART_KINDS.map((item) => (
                 <Pressable
                   key={item.id}
                   style={[styles.chip, kind === item.id && styles.chipActive]}
-                  onPress={() => setKind(item.id)}
+                  onPress={() => {
+                    setKind(item.id);
+                    if (item.id === 'muffe') setDimensionPicker(null);
+                  }}
                 >
                   <Text style={[styles.chipText, kind === item.id && styles.chipTextActive]}>
                     {item.label}
@@ -767,102 +779,95 @@ export function DrawingBoardScreen({ navigation, route }: Props) {
               ))}
             </View>
 
-            <Text style={styles.label}>{kind === 'abzweig' ? 'Haupt DM' : 'DM'}</Text>
-            <Pressable
-              style={styles.dimensionField}
-              onPress={() =>
+            <DimensionPicker
+              label={kind === 'abzweig' ? 'Haupt DM' : 'DM'}
+              value={diameter}
+              open={dimensionPicker === 'primary'}
+              onToggle={() =>
                 setDimensionPicker((current) => (current === 'primary' ? null : 'primary'))
               }
-            >
-              <Text style={styles.dimensionValue}>DM {diameter}</Text>
-              <Text style={styles.dimensionArrow}>
-                {dimensionPicker === 'primary' ? '⌃' : '⌄'}
-              </Text>
-            </Pressable>
-            {dimensionPicker === 'primary' ? (
-              <ScrollView style={styles.dimensionList} nestedScrollEnabled keyboardShouldPersistTaps="handled">
-                {COMMON_DIAMETERS.map((dm) => {
-                  const active = diameter === String(dm);
-                  return (
-                    <Pressable
-                      key={dm}
-                      style={[styles.dimensionRow, active && styles.dimensionRowActive]}
-                      onPress={() => {
-                        setDiameter(String(dm));
-                        setDimensionPicker(null);
-                      }}
-                    >
-                      <Text
-                        style={[
-                          styles.dimensionRowText,
-                          active && styles.dimensionRowTextActive,
-                        ]}
-                      >
-                        DM {dm}
-                      </Text>
-                      {active ? <Text style={styles.dimensionCheck}>✓</Text> : null}
-                    </Pressable>
-                  );
-                })}
-              </ScrollView>
-            ) : null}
+              onSelect={(dm) => {
+                setDiameter(dm);
+                setDimensionPicker(null);
+              }}
+            />
 
             {kind !== 'muffe' ? (
-              <>
-                <Text style={styles.label}>
-                  {kind === 'reduzir' ? 'Cél DM' : 'Abzweig DM'}
-                </Text>
-                <Pressable
-                  style={styles.dimensionField}
-                  onPress={() =>
-                    setDimensionPicker((current) => (current === 'secondary' ? null : 'secondary'))
-                  }
-                >
-                  <Text style={styles.dimensionValue}>DM {diameterTo}</Text>
-                  <Text style={styles.dimensionArrow}>
-                    {dimensionPicker === 'secondary' ? '⌃' : '⌄'}
-                  </Text>
-                </Pressable>
-                {dimensionPicker === 'secondary' ? (
-                  <ScrollView
-                    style={styles.dimensionList}
-                    nestedScrollEnabled
-                    keyboardShouldPersistTaps="handled"
-                  >
-                    {COMMON_DIAMETERS.map((dm) => {
-                      const active = diameterTo === String(dm);
-                      return (
-                        <Pressable
-                          key={`to-${dm}`}
-                          style={[styles.dimensionRow, active && styles.dimensionRowActive]}
-                          onPress={() => {
-                            setDiameterTo(String(dm));
-                            setDimensionPicker(null);
-                          }}
-                        >
-                          <Text
-                            style={[
-                              styles.dimensionRowText,
-                              active && styles.dimensionRowTextActive,
-                            ]}
-                          >
-                            DM {dm}
-                          </Text>
-                          {active ? <Text style={styles.dimensionCheck}>✓</Text> : null}
-                        </Pressable>
-                      );
-                    })}
-                  </ScrollView>
-                ) : null}
-              </>
+              <DimensionPicker
+                label={kind === 'reduzir' ? 'Cél DM' : 'Abzweig DM'}
+                value={diameterTo}
+                open={dimensionPicker === 'secondary'}
+                onToggle={() =>
+                  setDimensionPicker((current) => (current === 'secondary' ? null : 'secondary'))
+                }
+                onSelect={(dm) => {
+                  setDiameterTo(dm);
+                  setDimensionPicker(null);
+                }}
+              />
             ) : null}
 
             <Pressable style={styles.saveButton} onPress={saveConversion}>
-              <Text style={styles.saveText}>Átalakítás ({openMarkers.length} db)</Text>
+              <Text style={styles.saveText}>
+                Átalakítás · {partKindLabel(kind)} · DM {diameter}
+                {kind !== 'muffe' ? ` / ${diameterTo}` : ''} · {openMarkers.length} db
+              </Text>
             </Pressable>
           </View>
         </View>
       </Modal>
+    </View>
+  );
+}
+
+function DimensionPicker({
+  label,
+  value,
+  open,
+  onToggle,
+  onSelect,
+}: {
+  label: string;
+  value: string;
+  open: boolean;
+  onToggle: () => void;
+  onSelect: (dm: string) => void;
+}) {
+  return (
+    <View style={styles.dimensionBlock}>
+      <Text style={styles.label}>{label}</Text>
+      <Pressable
+        style={[styles.dimensionField, open && styles.dimensionFieldOpen]}
+        onPress={onToggle}
+      >
+        <Text style={styles.dimensionValue}>DM {value}</Text>
+        <Text style={styles.dimensionArrow}>{open ? '⌃' : '⌄'}</Text>
+      </Pressable>
+      {open ? (
+        <ScrollView
+          style={styles.dimensionList}
+          nestedScrollEnabled
+          keyboardShouldPersistTaps="always"
+        >
+          {COMMON_DIAMETERS.map((dm) => {
+            const selected = value === String(dm);
+            return (
+              <Pressable
+                key={dm}
+                style={[styles.dimensionRow, selected && styles.dimensionRowActive]}
+                onPress={() => onSelect(String(dm))}
+              >
+                <Text
+                  style={[styles.dimensionRowText, selected && styles.dimensionRowTextActive]}
+                >
+                  DM {dm}
+                </Text>
+                {selected ? <Text style={styles.dimensionCheck}>✓</Text> : null}
+              </Pressable>
+            );
+          })}
+        </ScrollView>
+      ) : null}
     </View>
   );
 }
@@ -984,8 +989,8 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   completedMarker: {
-    width: 52,
-    height: 34,
+    width: 58,
+    height: 38,
     borderRadius: 8,
     borderWidth: 2,
     borderColor: colors.total,
@@ -993,7 +998,7 @@ const styles = StyleSheet.create({
   },
   xText: { color: colors.danger, fontSize: 22, fontWeight: '900', lineHeight: 24 },
   completedType: { color: colors.total, fontSize: 9, fontWeight: '800' },
-  completedDm: { color: colors.ink, fontSize: 10, fontWeight: '800' },
+  completedDm: { color: colors.ink, fontSize: 12, fontWeight: '900' },
   status: {
     minHeight: 48,
     paddingHorizontal: spacing.md,
@@ -1066,8 +1071,15 @@ const styles = StyleSheet.create({
   confirmDeleteText: { color: '#fff', fontWeight: '800' },
   backdrop: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.42)',
     justifyContent: 'flex-end',
+  },
+  backdropDismiss: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
+    backgroundColor: 'rgba(0,0,0,0.42)',
   },
   sheet: {
     backgroundColor: colors.surface,
@@ -1076,8 +1088,23 @@ const styles = StyleSheet.create({
     padding: spacing.md,
     paddingBottom: spacing.xl,
     maxHeight: '88%',
+    zIndex: 2,
+    elevation: 8,
   },
-  sheetTitle: { fontSize: 22, fontWeight: '800', color: colors.ink },
+  sheetTitle: { fontSize: 20, fontWeight: '800', color: colors.ink, marginBottom: 10 },
+  selectedSummary: {
+    minHeight: 52,
+    borderRadius: 10,
+    backgroundColor: '#fff3e6',
+    borderWidth: 2,
+    borderColor: colors.accent,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    marginBottom: spacing.md,
+    justifyContent: 'center',
+  },
+  selectedSummaryLabel: { color: colors.accent, fontSize: 12, fontWeight: '800' },
+  selectedSummaryValue: { color: colors.ink, fontSize: 22, fontWeight: '900' },
   sheetHint: { color: colors.muted, marginTop: 4, marginBottom: spacing.md },
   chips: { flexDirection: 'row', gap: 8, marginBottom: spacing.md },
   chip: {
@@ -1092,19 +1119,20 @@ const styles = StyleSheet.create({
   chipText: { color: colors.ink, fontWeight: '700' },
   chipTextActive: { color: '#fff' },
   label: { color: colors.ink, fontWeight: '800', marginBottom: 7 },
+  dimensionBlock: { marginBottom: spacing.md },
   dimensionField: {
     minHeight: 52,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 14,
-    marginBottom: spacing.md,
     borderRadius: 8,
     backgroundColor: colors.bg,
     borderWidth: 1,
     borderColor: colors.border,
   },
-  dimensionValue: { color: colors.ink, fontSize: 18, fontWeight: '800' },
+  dimensionFieldOpen: { borderColor: colors.accent, backgroundColor: '#fff3e6' },
+  dimensionValue: { color: colors.ink, fontSize: 22, fontWeight: '900' },
   dimensionArrow: { color: colors.muted, fontSize: 22, fontWeight: '800' },
   dimensionSheet: {
     backgroundColor: colors.surface,
