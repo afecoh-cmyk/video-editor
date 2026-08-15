@@ -3,6 +3,7 @@ import {
   Alert,
   Modal,
   PanResponder,
+  Platform,
   Pressable,
   StyleSheet,
   Text,
@@ -121,6 +122,9 @@ export function DrawingBoardScreen({ navigation, route }: Props) {
   const panResponder = useMemo(
     () =>
       PanResponder.create({
+        onStartShouldSetPanResponderCapture: (event) => event.nativeEvent.touches.length >= 2,
+        onMoveShouldSetPanResponderCapture: (event) =>
+          event.nativeEvent.touches.length >= 2 || pinchRef.current != null,
         onStartShouldSetPanResponder: (event) =>
           event.nativeEvent.touches.length >= 2 || mode === 'draw',
         onMoveShouldSetPanResponder: (event) =>
@@ -361,7 +365,7 @@ export function DrawingBoardScreen({ navigation, route }: Props) {
       ) : null}
 
       <View
-        style={styles.canvas}
+        style={[styles.canvas, webGestureLock]}
         onLayout={onLayout}
         {...panResponder.panHandlers}
       >
@@ -548,6 +552,15 @@ function ModeButton({
     </Pressable>
   );
 }
+
+const webGestureLock =
+  Platform.OS === 'web'
+    ? ({
+        touchAction: 'none',
+        overscrollBehavior: 'none',
+        userSelect: 'none',
+      } as never)
+    : undefined;
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: '#dfe5e8' },
