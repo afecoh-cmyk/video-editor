@@ -25,8 +25,8 @@ A szerelő telefonon gyorsan felírja és módosítja:
    - Elengedéskor a vonal automatikusan egyszerűsödik: a kézremegés eltűnik, a valódi sarkok tiszta töréspontok maradnak.
    - A megtartott szakaszok a legközelebbi 30°-os tervrajzi irányra igazodnak (0°, 30°, 60°, 90° stb.); a valódi ferde törést nem szabad 90°-ra kényszeríteni.
    - A VL/RL pár valódi sarokillesztést használ: a beállított távolság a sarkokban sem szűkülhet vagy tágulhat.
-   - Ha egy új ág vége 36 px-en belül, közel merőlegesen ér egy meglévő vonalpárhoz, a VL és RL végpont külön-külön a megfelelő fővonalra illeszkedik (Abzweig-csatlakozás).
-   - Meglévő sarok 36 px-es környezetében a tényleges VL/RL sarokpont elsőbbséget élvez a szakaszra vetítéssel szemben; sarokra rajzolva nem maradhat rés vagy ferde toldás.
+   - Jobbra/balra toldáskor a új vonal a meglévő VL+RL pár **középvonalába fűződik**, és a sarok miterrel újraszámolódik. Nem jön létre külön, eltolt/ferde toldás.
+   - Abzweig: közel merőleges ág a megfelelő VL/RL fővonalra / végpontra ugrik.
    - **Cső módban** koppintással kijelölhető egy vonalpár; a `− / +` vezérlővel 12–80 px között állítható a VL–RL távolság.
    - A vonalhoz kapcsolt X-eknek együtt kell mozogniuk a távolság állításakor.
 4. **Rajz** az alapmód; az **X módot külön aktiválni kell**.
@@ -34,7 +34,7 @@ A szerelő telefonon gyorsan felírja és módosítja:
 6. Minden még át nem alakított X automatikusan az **aktuális csoport** része; nincs külön kijelölési mód.
 7. Hosszú nyomás X módban vagy a `Muff (N)` gomb → közös típus + DM adatlap.
    - Az adatlapon csak az aktuálisan kiválasztott DM látszik.
-   - A DM mezőre koppintva külön, görgethető méretmenü nyílik DM 90–710 értékekkel.
+   - A DM mezőre koppintva ugyanabban a lapon nyílik a görgethető méretmenü (DM 90–710); a kiválasztott érték ott marad.
    - Reduzir/Abzweig esetén a második DM ugyanilyen külön menüből választható.
 8. Mentéskor az összes aktuális X külön 1 db PartEntry lesz. A később lerakott X-ek új csoportot alkotnak.
 9. Drótmérés ezen az adatlapon nincs.

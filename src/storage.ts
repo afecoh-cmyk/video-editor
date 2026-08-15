@@ -81,6 +81,7 @@ async function read(): Promise<AppData> {
         parts: parsed.parts,
         canvasMarkers: parsed.canvasMarkers ?? [],
         canvasStrokes: parsed.canvasStrokes ?? [],
+        canvasPairUndo: parsed.canvasPairUndo ?? null,
       };
     }
     if (parsed.muffs) {
@@ -188,6 +189,7 @@ export async function deleteProject(id: string): Promise<void> {
   data.parts = data.parts.filter((m) => m.projectId !== id);
   data.canvasMarkers = data.canvasMarkers.filter((m) => m.projectId !== id);
   data.canvasStrokes = data.canvasStrokes.filter((s) => s.projectId !== id);
+  if (data.canvasPairUndo?.projectId === id) data.canvasPairUndo = null;
   await write(data);
 }
 
@@ -252,12 +254,12 @@ function projectMarkerToUpdatedStroke(
   };
 }
 
-export async function updateCanvasStrokePair(
+function applyPairPoints(
+  data: AppData,
   pairId: string,
   vorlaufPoints: CanvasPoint[],
   ruecklaufPoints: CanvasPoint[]
-): Promise<void> {
-  const data = await read();
+): string | undefined {
   const pair = data.canvasStrokes.filter((stroke) => stroke.pairId === pairId);
   for (const stroke of pair) {
     const nextPoints = stroke.pipeKind === 'ruecklauf' ? ruecklaufPoints : vorlaufPoints;
@@ -268,7 +270,39 @@ export async function updateCanvasStrokePair(
     }
     stroke.points = nextPoints;
   }
-  const projectId = pair[0]?.projectId;
+  return pair[0]?.projectId;
+}
+
+export async function extendCanvasStrokePair(
+  pairId: string,
+  vorlaufPoints: CanvasPoint[],
+  ruecklaufPoints: CanvasPoint[]
+): Promise<void> {
+  const data = await read();
+  const pair = data.canvasStrokes.filter((stroke) => stroke.pairId === pairId);
+  const vorlauf = pair.find((stroke) => stroke.pipeKind === 'vorlauf') ?? pair[0];
+  const ruecklauf = pair.find((stroke) => stroke.pipeKind === 'ruecklauf') ?? pair[1];
+  if (!vorlauf || !ruecklauf) return;
+  data.canvasPairUndo = {
+    pairId,
+    projectId: vorlauf.projectId,
+    vorlauf: vorlauf.points.map((point) => ({ ...point })),
+    ruecklauf: ruecklauf.points.map((point) => ({ ...point })),
+    createdAt: new Date().toISOString(),
+  };
+  const projectId = applyPairPoints(data, pairId, vorlaufPoints, ruecklaufPoints);
+  if (projectId) touchProject(data, projectId);
+  await write(data);
+}
+
+export async function updateCanvasStrokePair(
+  pairId: string,
+  vorlaufPoints: CanvasPoint[],
+  ruecklaufPoints: CanvasPoint[]
+): Promise<void> {
+  const data = await read();
+  if (data.canvasPairUndo?.pairId === pairId) data.canvasPairUndo = null;
+  const projectId = applyPairPoints(data, pairId, vorlaufPoints, ruecklaufPoints);
   if (projectId) touchProject(data, projectId);
   await write(data);
 }
@@ -300,6 +334,7 @@ export async function addCanvasStrokePair(
 ): Promise<void> {
   if (vorlaufPoints.length < 2 || ruecklaufPoints.length < 2) return;
   const data = await read();
+  if (data.canvasPairUndo?.projectId === projectId) data.canvasPairUndo = null;
   const pairId = await newId();
   const createdAt = new Date().toISOString();
   data.canvasStrokes.push(
@@ -330,6 +365,16 @@ export async function undoCanvasAction(projectId: string): Promise<void> {
   const strokes = data.canvasStrokes.filter((s) => s.projectId === projectId);
   const marker = markers.at(-1);
   const stroke = strokes.at(-1);
+  const pairUndo =
+    data.canvasPairUndo?.projectId === projectId ? data.canvasPairUndo : null;
+  const latestAdd = [marker?.createdAt, stroke?.createdAt].filter(Boolean).sort().at(-1);
+  if (pairUndo && (!latestAdd || pairUndo.createdAt >= latestAdd)) {
+    applyPairPoints(data, pairUndo.pairId, pairUndo.vorlauf, pairUndo.ruecklauf);
+    data.canvasPairUndo = null;
+    touchProject(data, projectId);
+    await write(data);
+    return;
+  }
   if (!marker && !stroke) return;
   if (marker && (!stroke || marker.createdAt >= stroke.createdAt)) {
     if (marker.partId) data.parts = data.parts.filter((p) => p.id !== marker.partId);
@@ -339,6 +384,7 @@ export async function undoCanvasAction(projectId: string): Promise<void> {
       stroke.pairId ? s.pairId !== stroke.pairId : s.id !== stroke.id
     );
   }
+  if (data.canvasPairUndo?.projectId === projectId) data.canvasPairUndo = null;
   touchProject(data, projectId);
   await write(data);
 }

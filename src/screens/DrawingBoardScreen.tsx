@@ -16,10 +16,19 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import Svg, { Line, Path } from 'react-native-svg';
 import type { RootStackParamList } from '../navigation';
 import {
+  findPairEndJoin,
+  makePipePair,
+  mergeCenterlineOntoPair,
+  simplifyPipePath,
+  snapBranchPairToExisting,
+  snapPipePathAngles,
+} from '../pipeGeometry';
+import {
   addCanvasMarker,
   addCanvasStrokePair,
   convertMarkersToParts,
   deleteProject,
+  extendCanvasStrokePair,
   getCanvas,
   getProject,
   listParts,
@@ -36,260 +45,12 @@ import {
   type CanvasStroke,
   type PartEntry,
   type PartKind,
-  type PipeLineKind,
 } from '../types';
 import { colors, spacing } from '../theme';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'DrawingBoard'>;
 type Mode = 'pan' | 'draw' | 'mark' | 'pipe';
 type ViewTransform = { scale: number; offsetX: number; offsetY: number };
-
-function pointToSegmentDistance(
-  point: CanvasPoint,
-  start: CanvasPoint,
-  end: CanvasPoint,
-  size: { width: number; height: number }
-): number {
-  const px = point.x * size.width;
-  const py = point.y * size.height;
-  const ax = start.x * size.width;
-  const ay = start.y * size.height;
-  const bx = end.x * size.width;
-  const by = end.y * size.height;
-  const dx = bx - ax;
-  const dy = by - ay;
-  const lengthSquared = dx * dx + dy * dy;
-  const ratio =
-    lengthSquared === 0
-      ? 0
-      : Math.max(0, Math.min(1, ((px - ax) * dx + (py - ay) * dy) / lengthSquared));
-  return Math.hypot(px - (ax + ratio * dx), py - (ay + ratio * dy));
-}
-
-/** Ramer–Douglas–Peucker: a kézremegést eltávolítja, a valódi sarkokat megtartja. */
-function simplifyPipePath(
-  points: CanvasPoint[],
-  size: { width: number; height: number },
-  tolerancePx: number
-): CanvasPoint[] {
-  if (points.length <= 2) return points;
-  let farthestIndex = 0;
-  let farthestDistance = 0;
-  for (let index = 1; index < points.length - 1; index += 1) {
-    const distance = pointToSegmentDistance(
-      points[index],
-      points[0],
-      points[points.length - 1],
-      size
-    );
-    if (distance > farthestDistance) {
-      farthestDistance = distance;
-      farthestIndex = index;
-    }
-  }
-  if (farthestDistance <= tolerancePx) return [points[0], points[points.length - 1]];
-  const left = simplifyPipePath(points.slice(0, farthestIndex + 1), size, tolerancePx);
-  const right = simplifyPipePath(points.slice(farthestIndex), size, tolerancePx);
-  return [...left.slice(0, -1), ...right];
-}
-
-/** A megtartott töréspontokat a legközelebbi 30°-os tervrajzi irányra igazítja. */
-function snapPipePathAngles(
-  points: CanvasPoint[],
-  size: { width: number; height: number }
-): CanvasPoint[] {
-  if (points.length < 2) return points;
-  const result: CanvasPoint[] = [points[0]];
-  for (let index = 1; index < points.length; index += 1) {
-    const current = result[result.length - 1];
-    const target = points[index];
-    const dx = (target.x - current.x) * size.width;
-    const dy = (target.y - current.y) * size.height;
-    const length = Math.hypot(dx, dy);
-    const angleStep = Math.PI / 6;
-    const angle = Math.round(Math.atan2(dy, dx) / angleStep) * angleStep;
-    const next = {
-      x: current.x + (Math.cos(angle) * length) / size.width,
-      y: current.y + (Math.sin(angle) * length) / size.height,
-    };
-    if (length >= 6) {
-      result.push(next);
-    }
-  }
-
-  if (result.length < 3) return result;
-  const cleaned: CanvasPoint[] = [result[0]];
-  for (let index = 1; index < result.length - 1; index += 1) {
-    const before = cleaned[cleaned.length - 1];
-    const current = result[index];
-    const after = result[index + 1];
-    const firstAngle = Math.round(
-      Math.atan2(
-        (current.y - before.y) * size.height,
-        (current.x - before.x) * size.width
-      ) /
-        (Math.PI / 6)
-    );
-    const secondAngle = Math.round(
-      Math.atan2(
-        (after.y - current.y) * size.height,
-        (after.x - current.x) * size.width
-      ) /
-        (Math.PI / 6)
-    );
-    if (firstAngle !== secondAngle) cleaned.push(current);
-  }
-  cleaned.push(result[result.length - 1]);
-  return cleaned;
-}
-
-function offsetPipe(
-  points: CanvasPoint[],
-  offsetPx: number,
-  size: { width: number; height: number }
-): CanvasPoint[] {
-  return points.map((point, index) => {
-    const previous = points[Math.max(0, index - 1)];
-    const next = points[Math.min(points.length - 1, index + 1)];
-    const incomingX = (point.x - previous.x) * size.width;
-    const incomingY = (point.y - previous.y) * size.height;
-    const outgoingX = (next.x - point.x) * size.width;
-    const outgoingY = (next.y - point.y) * size.height;
-    const incomingLength = Math.hypot(incomingX, incomingY);
-    const outgoingLength = Math.hypot(outgoingX, outgoingY);
-
-    const firstX = incomingLength ? incomingX / incomingLength : outgoingX / (outgoingLength || 1);
-    const firstY = incomingLength ? incomingY / incomingLength : outgoingY / (outgoingLength || 1);
-    const secondX = outgoingLength ? outgoingX / outgoingLength : firstX;
-    const secondY = outgoingLength ? outgoingY / outgoingLength : firstY;
-    const firstNormal = { x: -firstY, y: firstX };
-    const secondNormal = { x: -secondY, y: secondX };
-    const sumX = firstNormal.x + secondNormal.x;
-    const sumY = firstNormal.y + secondNormal.y;
-    const sumLength = Math.hypot(sumX, sumY);
-    const miter =
-      sumLength > 0.001
-        ? { x: sumX / sumLength, y: sumY / sumLength }
-        : secondNormal;
-    const denominator = miter.x * secondNormal.x + miter.y * secondNormal.y;
-    const miterLength =
-      Math.abs(denominator) > 0.1
-        ? Math.max(-Math.abs(offsetPx) * 3, Math.min(Math.abs(offsetPx) * 3, offsetPx / denominator))
-        : offsetPx;
-    return {
-      x: point.x + (miter.x * miterLength) / size.width,
-      y: point.y + (miter.y * miterLength) / size.height,
-    };
-  });
-}
-
-function makePipePair(
-  points: CanvasPoint[],
-  size: { width: number; height: number },
-  spacingPx = 28
-): [CanvasPoint[], CanvasPoint[]] {
-  return [
-    offsetPipe(points, -spacingPx / 2, size),
-    offsetPipe(points, spacingPx / 2, size),
-  ];
-}
-
-function snapEndpointToExistingPipe(
-  point: CanvasPoint,
-  neighbor: CanvasPoint,
-  pipeKind: PipeLineKind,
-  strokes: CanvasStroke[],
-  size: { width: number; height: number },
-  maxDistancePx: number
-): CanvasPoint {
-  const branchDx = (neighbor.x - point.x) * size.width;
-  const branchDy = (neighbor.y - point.y) * size.height;
-  const branchLength = Math.hypot(branchDx, branchDy) || 1;
-  const matchingStrokes = strokes.filter(
-    (item) => (item.pipeKind ?? 'vorlauf') === pipeKind
-  );
-
-  // Meglévő sarok közelében mindig a tényleges töréspont élvez elsőbbséget.
-  let nearestCorner: { point: CanvasPoint; distance: number } | null = null;
-  for (const stroke of matchingStrokes) {
-    for (const corner of stroke.points) {
-      const distance = Math.hypot(
-        (point.x - corner.x) * size.width,
-        (point.y - corner.y) * size.height
-      );
-      if (!nearestCorner || distance < nearestCorner.distance) {
-        nearestCorner = { point: corner, distance };
-      }
-    }
-  }
-  if (nearestCorner && nearestCorner.distance <= maxDistancePx) {
-    return nearestCorner.point;
-  }
-
-  let best: { point: CanvasPoint; distance: number } | null = null;
-
-  for (const stroke of matchingStrokes) {
-    for (let index = 1; index < stroke.points.length; index += 1) {
-      const a = stroke.points[index - 1];
-      const b = stroke.points[index];
-      const dx = (b.x - a.x) * size.width;
-      const dy = (b.y - a.y) * size.height;
-      const lengthSquared = dx * dx + dy * dy;
-      if (lengthSquared === 0) continue;
-      const px = (point.x - a.x) * size.width;
-      const py = (point.y - a.y) * size.height;
-      const ratio = Math.max(0, Math.min(1, (px * dx + py * dy) / lengthSquared));
-      const projected = {
-        x: a.x + ratio * (b.x - a.x),
-        y: a.y + ratio * (b.y - a.y),
-      };
-      const distance = Math.hypot(
-        (point.x - projected.x) * size.width,
-        (point.y - projected.y) * size.height
-      );
-      const existingLength = Math.sqrt(lengthSquared);
-      const directionDot = Math.abs(
-        (branchDx * dx + branchDy * dy) / (branchLength * existingLength)
-      );
-      // Abzweig: a csatlakozó ág közel merőleges a meglévő fővezetékre.
-      if (directionDot <= 0.45 && (!best || distance < best.distance)) {
-        best = { point: projected, distance };
-      }
-    }
-  }
-  return best && best.distance <= maxDistancePx ? best.point : point;
-}
-
-function snapPipePairToExisting(
-  pair: [CanvasPoint[], CanvasPoint[]],
-  strokes: CanvasStroke[],
-  size: { width: number; height: number },
-  maxDistancePx: number
-): [CanvasPoint[], CanvasPoint[]] {
-  return pair.map((points, pairIndex) => {
-    if (points.length < 2) return points;
-    const next = [...points];
-    const kind: PipeLineKind = pairIndex === 0 ? 'vorlauf' : 'ruecklauf';
-    next[0] = snapEndpointToExistingPipe(
-      next[0],
-      next[1],
-      kind,
-      strokes,
-      size,
-      maxDistancePx
-    );
-    const last = next.length - 1;
-    next[last] = snapEndpointToExistingPipe(
-      next[last],
-      next[last - 1],
-      kind,
-      strokes,
-      size,
-      maxDistancePx
-    );
-    return next;
-  }) as [CanvasPoint[], CanvasPoint[]];
-}
 
 export function DrawingBoardScreen({ navigation, route }: Props) {
   const { projectId } = route.params;
@@ -552,12 +313,23 @@ export function DrawingBoardScreen({ navigation, route }: Props) {
           setDraftPoints([]);
           const simplified = simplifyPipePath(points, size, 9 / viewRef.current.scale);
           const cleaned = snapPipePathAngles(simplified, size);
+          if (cleaned.length < 2) return;
+          const snapPx = 80 / viewRef.current.scale;
+          const endJoin = findPairEndJoin(cleaned, strokes, size, snapPx);
+          if (endJoin) {
+            const merged = mergeCenterlineOntoPair(cleaned, endJoin, strokes, size);
+            if (merged) {
+              await extendCanvasStrokePair(endJoin.pairId, merged[0], merged[1]);
+              await load();
+              return;
+            }
+          }
           const rawPair = makePipePair(cleaned, size);
-          const [vorlauf, ruecklauf] = snapPipePairToExisting(
+          const [vorlauf, ruecklauf] = snapBranchPairToExisting(
             rawPair,
             strokes,
             size,
-            36 / viewRef.current.scale
+            48 / viewRef.current.scale
           );
           await addCanvasStrokePair(projectId, vorlauf, ruecklauf);
           await load();
@@ -970,96 +742,113 @@ export function DrawingBoardScreen({ navigation, route }: Props) {
         </View>
       </Modal>
 
-      <Modal visible={modalOpen} transparent animationType="slide" onRequestClose={() => setModalOpen(false)}>
-        <Pressable style={styles.backdrop} onPress={() => setModalOpen(false)}>
-          <Pressable style={styles.sheet} onPress={(event) => event.stopPropagation()}>
-            <Text style={styles.sheetTitle}>{openMarkers.length} aktuális X átalakítása</Text>
-            <Text style={styles.sheetHint}>
-              Mindegyik jelenlegi X egy darab tétel lesz. Az ezután lerakott X-ek új csoportot alkotnak.
-            </Text>
-
-            <View style={styles.chips}>
-              {PART_KINDS.map((item) => (
-                <Pressable
-                  key={item.id}
-                  style={[styles.chip, kind === item.id && styles.chipActive]}
-                  onPress={() => setKind(item.id)}
-                >
-                  <Text style={[styles.chipText, kind === item.id && styles.chipTextActive]}>
-                    {item.label}
-                  </Text>
-                </Pressable>
-              ))}
-            </View>
-
-            <Text style={styles.label}>{kind === 'abzweig' ? 'Haupt DM' : 'DM'}</Text>
-            <Pressable
-              style={styles.dimensionField}
-              onPress={() => setDimensionPicker('primary')}
-            >
-              <Text style={styles.dimensionValue}>DM {diameter}</Text>
-              <Text style={styles.dimensionArrow}>⌄</Text>
-            </Pressable>
-
-            {kind !== 'muffe' ? (
-              <>
-                <Text style={styles.label}>{kind === 'reduzir' ? 'Cél DM' : 'Abzweig DM'}</Text>
-                <Pressable
-                  style={styles.dimensionField}
-                  onPress={() => setDimensionPicker('secondary')}
-                >
-                  <Text style={styles.dimensionValue}>DM {diameterTo}</Text>
-                  <Text style={styles.dimensionArrow}>⌄</Text>
-                </Pressable>
-              </>
-            ) : null}
-
-            <Pressable style={styles.saveButton} onPress={saveConversion}>
-              <Text style={styles.saveText}>Átalakítás ({openMarkers.length} db)</Text>
-            </Pressable>
-          </Pressable>
-        </Pressable>
-      </Modal>
-
       <Modal
-        visible={dimensionPicker != null}
+        visible={modalOpen}
         transparent
         animationType="slide"
-        onRequestClose={() => setDimensionPicker(null)}
+        onRequestClose={() => {
+          if (dimensionPicker) setDimensionPicker(null);
+          else setModalOpen(false);
+        }}
       >
-        <Pressable style={styles.backdrop} onPress={() => setDimensionPicker(null)}>
-          <Pressable style={styles.dimensionSheet} onPress={(event) => event.stopPropagation()}>
-            <Text style={styles.sheetTitle}>
-              {dimensionPicker === 'secondary' ? 'Második DM kiválasztása' : 'DM kiválasztása'}
-            </Text>
-            <Text style={styles.sheetHint}>Válassz méretet DM 90–710 között.</Text>
-            <ScrollView style={styles.dimensionList} showsVerticalScrollIndicator>
-              {COMMON_DIAMETERS.map((dm) => {
-                const active =
-                  dimensionPicker === 'secondary'
-                    ? diameterTo === String(dm)
-                    : diameter === String(dm);
-                return (
-                  <Pressable
-                    key={dm}
-                    style={[styles.dimensionRow, active && styles.dimensionRowActive]}
-                    onPress={() => {
-                      if (dimensionPicker === 'secondary') setDiameterTo(String(dm));
-                      else setDiameter(String(dm));
-                      setDimensionPicker(null);
-                    }}
-                  >
-                    <Text style={[styles.dimensionRowText, active && styles.dimensionRowTextActive]}>
-                      DM {dm}
+        <Pressable
+          style={styles.backdrop}
+          onPress={() => {
+            if (dimensionPicker) setDimensionPicker(null);
+            else setModalOpen(false);
+          }}
+        >
+          <Pressable style={styles.sheet} onPress={(event) => event.stopPropagation()}>
+            {dimensionPicker ? (
+              <>
+                <Text style={styles.sheetTitle}>
+                  {dimensionPicker === 'secondary' ? 'Második DM kiválasztása' : 'DM kiválasztása'}
+                </Text>
+                <Text style={styles.sheetHint}>Válassz méretet DM 90–710 között.</Text>
+                <ScrollView style={styles.dimensionList} showsVerticalScrollIndicator>
+                  {COMMON_DIAMETERS.map((dm) => {
+                    const active =
+                      dimensionPicker === 'secondary'
+                        ? diameterTo === String(dm)
+                        : diameter === String(dm);
+                    return (
+                      <Pressable
+                        key={dm}
+                        style={[styles.dimensionRow, active && styles.dimensionRowActive]}
+                        onPress={() => {
+                          if (dimensionPicker === 'secondary') setDiameterTo(String(dm));
+                          else setDiameter(String(dm));
+                          setDimensionPicker(null);
+                        }}
+                      >
+                        <Text
+                          style={[
+                            styles.dimensionRowText,
+                            active && styles.dimensionRowTextActive,
+                          ]}
+                        >
+                          DM {dm}
+                        </Text>
+                        {active ? <Text style={styles.dimensionCheck}>✓</Text> : null}
+                      </Pressable>
+                    );
+                  })}
+                </ScrollView>
+                <Pressable style={styles.menuCancel} onPress={() => setDimensionPicker(null)}>
+                  <Text style={styles.menuCancelText}>Vissza</Text>
+                </Pressable>
+              </>
+            ) : (
+              <>
+                <Text style={styles.sheetTitle}>{openMarkers.length} aktuális X átalakítása</Text>
+                <Text style={styles.sheetHint}>
+                  Mindegyik jelenlegi X egy darab tétel lesz. Az ezután lerakott X-ek új csoportot
+                  alkotnak.
+                </Text>
+
+                <View style={styles.chips}>
+                  {PART_KINDS.map((item) => (
+                    <Pressable
+                      key={item.id}
+                      style={[styles.chip, kind === item.id && styles.chipActive]}
+                      onPress={() => setKind(item.id)}
+                    >
+                      <Text style={[styles.chipText, kind === item.id && styles.chipTextActive]}>
+                        {item.label}
+                      </Text>
+                    </Pressable>
+                  ))}
+                </View>
+
+                <Text style={styles.label}>{kind === 'abzweig' ? 'Haupt DM' : 'DM'}</Text>
+                <Pressable
+                  style={styles.dimensionField}
+                  onPress={() => setDimensionPicker('primary')}
+                >
+                  <Text style={styles.dimensionValue}>DM {diameter}</Text>
+                  <Text style={styles.dimensionArrow}>⌄</Text>
+                </Pressable>
+
+                {kind !== 'muffe' ? (
+                  <>
+                    <Text style={styles.label}>
+                      {kind === 'reduzir' ? 'Cél DM' : 'Abzweig DM'}
                     </Text>
-                    {active ? <Text style={styles.dimensionCheck}>✓</Text> : null}
-                  </Pressable>
-                );
-              })}
-            </ScrollView>
-            <Pressable style={styles.menuCancel} onPress={() => setDimensionPicker(null)}>
-              <Text style={styles.menuCancelText}>Mégse</Text>
-            </Pressable>
+                    <Pressable
+                      style={styles.dimensionField}
+                      onPress={() => setDimensionPicker('secondary')}
+                    >
+                      <Text style={styles.dimensionValue}>DM {diameterTo}</Text>
+                      <Text style={styles.dimensionArrow}>⌄</Text>
+                    </Pressable>
+                  </>
+                ) : null}
+
+                <Pressable style={styles.saveButton} onPress={saveConversion}>
+                  <Text style={styles.saveText}>Átalakítás ({openMarkers.length} db)</Text>
+                </Pressable>
+              </>
+            )}
           </Pressable>
         </Pressable>
       </Modal>

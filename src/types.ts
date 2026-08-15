@@ -74,11 +74,21 @@ export type CanvasMarker = {
 /** @deprecated use PartEntry — kept alias for older imports */
 export type MuffEntry = PartEntry;
 
+export type CanvasPairUndo = {
+  pairId: string;
+  projectId: string;
+  vorlauf: CanvasPoint[];
+  ruecklauf: CanvasPoint[];
+  createdAt: string;
+};
+
 export type AppData = {
   projects: Project[];
   parts: PartEntry[];
   canvasMarkers: CanvasMarker[];
   canvasStrokes: CanvasStroke[];
+  /** Utolsó csőtoldás előtti állapot, hogy a visszavonás ne törölje a teljes párt. */
+  canvasPairUndo?: CanvasPairUndo | null;
 };
 
 export const COMMON_DIAMETERS = [
