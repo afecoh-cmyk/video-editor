@@ -65,6 +65,8 @@ export type CanvasMarker = {
   projectId: string;
   x: number;
   y: number;
+  /** Az a fizikai VL/RL vonal, amelyre az X illeszkedik. */
+  strokeId?: string;
   partId: string | null;
   createdAt: string;
 };

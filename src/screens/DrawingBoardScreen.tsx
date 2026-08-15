@@ -24,6 +24,7 @@ import {
   getProject,
   listParts,
   undoCanvasAction,
+  updateCanvasStrokePair,
 } from '../storage';
 import {
   COMMON_DIAMETERS,
@@ -39,7 +40,7 @@ import {
 import { colors, spacing } from '../theme';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'DrawingBoard'>;
-type Mode = 'draw' | 'mark';
+type Mode = 'draw' | 'mark' | 'pipe';
 type ViewTransform = { scale: number; offsetX: number; offsetY: number };
 
 function pointToSegmentDistance(
@@ -111,9 +112,13 @@ function offsetPipe(
 
 function makePipePair(
   points: CanvasPoint[],
-  size: { width: number; height: number }
+  size: { width: number; height: number },
+  spacingPx = 28
 ): [CanvasPoint[], CanvasPoint[]] {
-  return [offsetPipe(points, -14, size), offsetPipe(points, 14, size)];
+  return [
+    offsetPipe(points, -spacingPx / 2, size),
+    offsetPipe(points, spacingPx / 2, size),
+  ];
 }
 
 export function DrawingBoardScreen({ navigation, route }: Props) {
@@ -127,6 +132,8 @@ export function DrawingBoardScreen({ navigation, route }: Props) {
   const [modalOpen, setModalOpen] = useState(false);
   const [projectMenuOpen, setProjectMenuOpen] = useState(false);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [selectedPairId, setSelectedPairId] = useState<string | null>(null);
+  const [pipeSpacing, setPipeSpacing] = useState(28);
   const [kind, setKind] = useState<PartKind>('muffe');
   const [diameter, setDiameter] = useState('315');
   const [diameterTo, setDiameterTo] = useState('250');
@@ -138,8 +145,10 @@ export function DrawingBoardScreen({ navigation, route }: Props) {
     moved: boolean;
     startedAt: number;
   } | null>(null);
+  const pipeTapRef = useRef<{ x: number; y: number; moved: boolean } | null>(null);
   const markerPlacementRef = useRef<(x: number, y: number) => Promise<void>>(async () => {});
   const openConvertRef = useRef<() => void>(() => {});
+  const pipeSelectionRef = useRef<(x: number, y: number) => void>(() => {});
   const suppressTapUntilRef = useRef(0);
   const lastMarkerAtRef = useRef(0);
   const viewRef = useRef(view);
@@ -212,6 +221,7 @@ export function DrawingBoardScreen({ navigation, route }: Props) {
         worldY: (midY - viewRef.current.offsetY) / viewRef.current.scale,
       };
       markerTapRef.current = null;
+      pipeTapRef.current = null;
       suppressTapUntilRef.current = Date.now() + 400;
       drawingRef.current = [];
       setDraftPoints([]);
@@ -226,9 +236,15 @@ export function DrawingBoardScreen({ navigation, route }: Props) {
         onMoveShouldSetPanResponderCapture: (event) =>
           event.nativeEvent.touches.length >= 2 || pinchRef.current != null,
         onStartShouldSetPanResponder: (event) =>
-          event.nativeEvent.touches.length >= 2 || mode === 'draw' || mode === 'mark',
+          event.nativeEvent.touches.length >= 2 ||
+          mode === 'draw' ||
+          mode === 'mark' ||
+          mode === 'pipe',
         onMoveShouldSetPanResponder: (event) =>
-          event.nativeEvent.touches.length >= 2 || mode === 'draw' || mode === 'mark',
+          event.nativeEvent.touches.length >= 2 ||
+          mode === 'draw' ||
+          mode === 'mark' ||
+          mode === 'pipe',
         onPanResponderGrant: (event) => {
           if (event.nativeEvent.touches.length >= 2) {
             beginPinch(event.nativeEvent.touches);
@@ -240,6 +256,14 @@ export function DrawingBoardScreen({ navigation, route }: Props) {
               y: event.nativeEvent.locationY,
               moved: false,
               startedAt: Date.now(),
+            };
+            return;
+          }
+          if (mode === 'pipe') {
+            pipeTapRef.current = {
+              x: event.nativeEvent.locationX,
+              y: event.nativeEvent.locationY,
+              moved: false,
             };
             return;
           }
@@ -280,6 +304,14 @@ export function DrawingBoardScreen({ navigation, route }: Props) {
             if (movement > 10) markerTapRef.current.moved = true;
             return;
           }
+          if (mode === 'pipe' && pipeTapRef.current) {
+            const movement = Math.hypot(
+              event.nativeEvent.locationX - pipeTapRef.current.x,
+              event.nativeEvent.locationY - pipeTapRef.current.y
+            );
+            if (movement > 10) pipeTapRef.current.moved = true;
+            return;
+          }
           if (pinchRef.current || mode !== 'draw') return;
           const { locationX, locationY } = event.nativeEvent;
           const next = screenToWorld(locationX, locationY);
@@ -302,6 +334,14 @@ export function DrawingBoardScreen({ navigation, route }: Props) {
             }
             return;
           }
+          if (mode === 'pipe') {
+            const tap = pipeTapRef.current;
+            pipeTapRef.current = null;
+            if (tap && !tap.moved && Date.now() >= suppressTapUntilRef.current) {
+              pipeSelectionRef.current(tap.x, tap.y);
+            }
+            return;
+          }
           const points = drawingRef.current;
           drawingRef.current = [];
           setDraftPoints([]);
@@ -313,6 +353,7 @@ export function DrawingBoardScreen({ navigation, route }: Props) {
         onPanResponderTerminate: () => {
           pinchRef.current = null;
           markerTapRef.current = null;
+          pipeTapRef.current = null;
           drawingRef.current = [];
           setDraftPoints([]);
         },
@@ -332,8 +373,13 @@ export function DrawingBoardScreen({ navigation, route }: Props) {
       })
       .join(' ');
 
-  const nearestPointOnPipe = (screenX: number, screenY: number): CanvasPoint | null => {
-    let best: { point: CanvasPoint; distance: number } | null = null;
+  const nearestPointOnPipe = (screenX: number, screenY: number) => {
+    let best: {
+      point: CanvasPoint;
+      distance: number;
+      strokeId: string;
+      pairId?: string;
+    } | null = null;
     for (const stroke of strokes) {
       for (let index = 1; index < stroke.points.length; index += 1) {
         const worldA = stroke.points[index - 1];
@@ -358,6 +404,8 @@ export function DrawingBoardScreen({ navigation, route }: Props) {
         if (!best || distance < best.distance) {
           best = {
             distance,
+            strokeId: stroke.id,
+            pairId: stroke.pairId,
             point: {
               x: worldA.x + ratio * (worldB.x - worldA.x),
               y: worldA.y + ratio * (worldB.y - worldA.y),
@@ -366,25 +414,62 @@ export function DrawingBoardScreen({ navigation, route }: Props) {
         }
       }
     }
-    // CSS/web képernyőn 1 mm ≈ 3,78 px; legfeljebb kb. 3 mm-es vonalközelség.
-    return best && best.distance <= 12 ? best.point : null;
+    return best;
   };
 
   const placeMarkerAt = async (screenX: number, screenY: number) => {
     if (Date.now() - lastMarkerAtRef.current < 300) return;
-    const snapped = nearestPointOnPipe(screenX, screenY);
-    if (!snapped) {
+    const hit = nearestPointOnPipe(screenX, screenY);
+    // CSS/web képernyőn 1 mm ≈ 3,78 px; legfeljebb kb. 3 mm-es vonalközelség.
+    if (!hit || hit.distance > 12) {
       Alert.alert(
         'Nincs csővonal elég közel',
         'Az X csak a vonaltól legfeljebb kb. 3 mm-re érzékelhető.'
       );
       return;
     }
-    await addCanvasMarker(projectId, snapped);
+    await addCanvasMarker(projectId, hit.point, hit.strokeId);
     lastMarkerAtRef.current = Date.now();
     await load();
   };
   markerPlacementRef.current = placeMarkerAt;
+
+  const selectPipeAt = (screenX: number, screenY: number) => {
+    const hit = nearestPointOnPipe(screenX, screenY);
+    if (!hit || hit.distance > 28 || !hit.pairId) {
+      Alert.alert('Nincs cső kijelölve', 'Koppints közelebb a VL vagy RL vonalhoz.');
+      return;
+    }
+    const pair = strokes.filter((stroke) => stroke.pairId === hit.pairId);
+    const vl = pair.find((stroke) => stroke.pipeKind === 'vorlauf');
+    const rl = pair.find((stroke) => stroke.pipeKind === 'ruecklauf');
+    if (!vl || !rl || !vl.points[0] || !rl.points[0]) return;
+    const spacing = Math.hypot(
+      (vl.points[0].x - rl.points[0].x) * size.width,
+      (vl.points[0].y - rl.points[0].y) * size.height
+    );
+    setSelectedPairId(hit.pairId);
+    setPipeSpacing(Math.round(spacing));
+  };
+  pipeSelectionRef.current = selectPipeAt;
+
+  const changePipeSpacing = async (delta: number) => {
+    if (!selectedPairId) return;
+    const pair = strokes.filter((stroke) => stroke.pairId === selectedPairId);
+    const vl = pair.find((stroke) => stroke.pipeKind === 'vorlauf');
+    const rl = pair.find((stroke) => stroke.pipeKind === 'ruecklauf');
+    if (!vl || !rl) return;
+    const count = Math.min(vl.points.length, rl.points.length);
+    const center = Array.from({ length: count }, (_, index) => ({
+      x: (vl.points[index].x + rl.points[index].x) / 2,
+      y: (vl.points[index].y + rl.points[index].y) / 2,
+    }));
+    const nextSpacing = Math.max(12, Math.min(80, pipeSpacing + delta));
+    const [nextVl, nextRl] = makePipePair(center, size, nextSpacing);
+    await updateCanvasStrokePair(selectedPairId, nextVl, nextRl);
+    setPipeSpacing(nextSpacing);
+    await load();
+  };
 
   const openConvert = () => {
     if (openMarkers.length === 0) {
@@ -416,6 +501,7 @@ export function DrawingBoardScreen({ navigation, route }: Props) {
 
   const changeMode = (next: Mode) => {
     setMode(next);
+    if (next !== 'pipe') setSelectedPairId(null);
   };
 
   const onLayout = (event: LayoutChangeEvent) => {
@@ -448,6 +534,7 @@ export function DrawingBoardScreen({ navigation, route }: Props) {
       <View style={styles.toolbar}>
         <ModeButton active={mode === 'draw'} label="✎ Rajz" onPress={() => changeMode('draw')} />
         <ModeButton active={mode === 'mark'} label="＋ X" onPress={() => changeMode('mark')} />
+        <ModeButton active={mode === 'pipe'} label="Cső" onPress={() => changeMode('pipe')} />
         <Pressable
           style={[styles.toolButton, openMarkers.length > 0 && styles.batchButton]}
           onPress={openConvert}
@@ -472,6 +559,22 @@ export function DrawingBoardScreen({ navigation, route }: Props) {
           <Text style={styles.toolText}>↶</Text>
         </Pressable>
       </View>
+
+      {mode === 'pipe' && selectedPairId ? (
+        <View style={styles.spacingBar}>
+          <Text style={styles.spacingLabel}>VL–RL távolság</Text>
+          <Pressable style={styles.spacingButton} onPress={() => void changePipeSpacing(-4)}>
+            <Text style={styles.spacingButtonText}>−</Text>
+          </Pressable>
+          <Text style={styles.spacingValue}>{pipeSpacing} px</Text>
+          <Pressable style={styles.spacingButton} onPress={() => void changePipeSpacing(4)}>
+            <Text style={styles.spacingButtonText}>＋</Text>
+          </Pressable>
+          <Pressable onPress={() => setSelectedPairId(null)}>
+            <Text style={styles.spacingDone}>Kész</Text>
+          </Pressable>
+        </View>
+      ) : null}
 
       <View
         style={[styles.canvas, webGestureLock]}
@@ -513,8 +616,8 @@ export function DrawingBoardScreen({ navigation, route }: Props) {
               <Path
                 key={stroke.id}
                 d={pathFor(stroke.points)}
-                stroke="#154d78"
-                strokeWidth={drawingWidth}
+                stroke={stroke.pairId === selectedPairId ? colors.accent : '#154d78'}
+                strokeWidth={stroke.pairId === selectedPairId ? drawingWidth + 2 : drawingWidth}
                 strokeDasharray={
                   stroke.pipeKind === 'ruecklauf'
                     ? `${12 * symbolScale} ${10 * symbolScale}`
@@ -571,7 +674,11 @@ export function DrawingBoardScreen({ navigation, route }: Props) {
         <Text style={styles.statusText}>
           {mode === 'draw'
             ? 'Rajzolj egyszer — elengedéskor a vonal és a sarkok kisimulnak'
-            : `${openMarkers.length} aktuális X · hosszan nyomd vagy Muff (${openMarkers.length})`}
+            : mode === 'mark'
+              ? `${openMarkers.length} aktuális X · hosszan nyomd vagy Muff (${openMarkers.length})`
+              : selectedPairId
+                ? 'Cső kijelölve · állítsd a VL–RL távolságot'
+                : 'Cső mód · koppints egy vonalpárra'}
         </Text>
         <Pressable onPress={() => navigation.navigate('MuffList', { projectId })}>
           <Text style={styles.listLink}>Lista ({parts.length})</Text>
@@ -761,6 +868,28 @@ const styles = StyleSheet.create({
   toolTextActive: { color: '#fff' },
   batchButton: { backgroundColor: colors.total },
   batchButtonText: { color: '#fff' },
+  spacingBar: {
+    minHeight: 50,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 10,
+    backgroundColor: '#fff3e6',
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0c08d',
+  },
+  spacingLabel: { flex: 1, color: colors.ink, fontWeight: '800', fontSize: 13 },
+  spacingButton: {
+    width: 38,
+    height: 36,
+    borderRadius: 8,
+    backgroundColor: colors.accent,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  spacingButtonText: { color: '#fff', fontSize: 22, fontWeight: '900' },
+  spacingValue: { minWidth: 50, textAlign: 'center', color: colors.ink, fontWeight: '800' },
+  spacingDone: { color: colors.total, fontWeight: '800', padding: 8 },
   canvas: {
     flex: 1,
     backgroundColor: '#fff',

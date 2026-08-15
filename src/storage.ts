@@ -204,7 +204,8 @@ export async function getCanvas(projectId: string): Promise<{
 
 export async function addCanvasMarker(
   projectId: string,
-  point: CanvasPoint
+  point: CanvasPoint,
+  strokeId?: string
 ): Promise<CanvasMarker> {
   const data = await read();
   const marker: CanvasMarker = {
@@ -212,6 +213,7 @@ export async function addCanvasMarker(
     projectId,
     x: point.x,
     y: point.y,
+    strokeId,
     partId: null,
     createdAt: new Date().toISOString(),
   };
@@ -219,6 +221,56 @@ export async function addCanvasMarker(
   touchProject(data, projectId);
   await write(data);
   return marker;
+}
+
+function projectMarkerToUpdatedStroke(
+  marker: CanvasMarker,
+  oldPoints: CanvasPoint[],
+  newPoints: CanvasPoint[]
+): CanvasPoint {
+  let best = { index: 0, ratio: 0, distance: Number.POSITIVE_INFINITY };
+  for (let index = 1; index < oldPoints.length; index += 1) {
+    const a = oldPoints[index - 1];
+    const b = oldPoints[index];
+    const dx = b.x - a.x;
+    const dy = b.y - a.y;
+    const lengthSquared = dx * dx + dy * dy;
+    const ratio =
+      lengthSquared === 0
+        ? 0
+        : Math.max(0, Math.min(1, ((marker.x - a.x) * dx + (marker.y - a.y) * dy) / lengthSquared));
+    const x = a.x + ratio * dx;
+    const y = a.y + ratio * dy;
+    const distance = Math.hypot(marker.x - x, marker.y - y);
+    if (distance < best.distance) best = { index, ratio, distance };
+  }
+  const a = newPoints[Math.max(0, best.index - 1)] ?? newPoints[0];
+  const b = newPoints[best.index] ?? newPoints.at(-1) ?? a;
+  return {
+    x: a.x + best.ratio * (b.x - a.x),
+    y: a.y + best.ratio * (b.y - a.y),
+  };
+}
+
+export async function updateCanvasStrokePair(
+  pairId: string,
+  vorlaufPoints: CanvasPoint[],
+  ruecklaufPoints: CanvasPoint[]
+): Promise<void> {
+  const data = await read();
+  const pair = data.canvasStrokes.filter((stroke) => stroke.pairId === pairId);
+  for (const stroke of pair) {
+    const nextPoints = stroke.pipeKind === 'ruecklauf' ? ruecklaufPoints : vorlaufPoints;
+    for (const marker of data.canvasMarkers.filter((item) => item.strokeId === stroke.id)) {
+      const next = projectMarkerToUpdatedStroke(marker, stroke.points, nextPoints);
+      marker.x = next.x;
+      marker.y = next.y;
+    }
+    stroke.points = nextPoints;
+  }
+  const projectId = pair[0]?.projectId;
+  if (projectId) touchProject(data, projectId);
+  await write(data);
 }
 
 export async function addCanvasStroke(

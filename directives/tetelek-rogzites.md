@@ -21,6 +21,8 @@ A szerelő telefonon gyorsan felírja és módosítja:
 2. A rajzlap kockás; **két ujjal nagyítható és mozgatható**, így nagy csőrendszer is elfér.
 3. Egy rajzmozdulat automatikusan **két párhuzamos vonalat** készít: **VL / Vorlauf** (meleg előremenő, folytonos) + **RL / Rücklauf** (visszatérő, szaggatott).
    - Elengedéskor a vonal automatikusan egyszerűsödik: a kézremegés eltűnik, a valódi sarkok tiszta töréspontok maradnak.
+   - **Cső módban** koppintással kijelölhető egy vonalpár; a `− / +` vezérlővel 12–80 px között állítható a VL–RL távolság.
+   - A vonalhoz kapcsolt X-eknek együtt kell mozogniuk a távolság állításakor.
 4. **Rajz** az alapmód; az **X módot külön aktiválni kell**.
 5. X módban csak rövid, legfeljebb 10 px-t mozduló koppintás rak le X-et; húzás/pinch után nem. A koppintásnak a VL/RL vonaltól legfeljebb kb. **3 mm-re (12 px)** kell lennie, különben nem kerül le X.
 6. Minden még át nem alakított X automatikusan az **aktuális csoport** része; nincs külön kijelölési mód.
