@@ -82,8 +82,8 @@ export function InstallButton() {
           <View style={styles.card}>
             <Text style={styles.title}>Muffe Plan letöltése</Text>
             <Text style={styles.body}>
-              Telepítsd a telefonra: ikon a kezdőképernyőn, offline is megy, nem kell mindig a
-              böngészőt keresni.
+              Tedd a kezdőképernyőre: ikon lesz belőle, offline is megy. A projektek csak ezen a
+              telefonon maradnak, nem mennek felhőbe.
             </Text>
 
             {canPrompt ? (

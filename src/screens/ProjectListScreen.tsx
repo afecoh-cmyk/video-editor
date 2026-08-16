@@ -69,6 +69,7 @@ export function ProjectListScreen() {
             <Text style={styles.emptyTitle}>Még nincs projekt</Text>
             <Text style={styles.emptyBody}>
               Hozz létre egy projektet, majd írd fel gyorsan: Muffe, Reduzir, Abzweig + DM + darabszám.
+              Minden adat csak ezen a telefonon marad, nem megy felhőbe.
             </Text>
           </View>
         </FadeIn>
@@ -103,6 +104,7 @@ export function ProjectListScreen() {
           }}
         />
       )}
+      <Text style={styles.localNote}>Adatok csak ezen a telefonon · nincs felhő</Text>
     </View>
   );
 }
@@ -160,4 +162,11 @@ const styles = StyleSheet.create({
   title: { fontSize: 18, fontWeight: '800', color: colors.ink, marginTop: 6 },
   meta: { color: colors.muted, marginTop: 4 },
   total: { marginTop: 10, color: colors.total, fontWeight: '800' },
+  localNote: {
+    textAlign: 'center',
+    color: colors.muted,
+    fontSize: 13,
+    fontWeight: '700',
+    paddingVertical: 10,
+  },
 });

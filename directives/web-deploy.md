@@ -2,7 +2,7 @@
 
 ## Cél
 
-Böngészőből / telefonról megnyitható **Muffe Plan**. A `main` ág a letölthető app.
+Böngészőből / telefonról megnyitható **Muffe Plan** (PWA). A `main` ág a letölthető app. Telepítés: lásd `directives/telepites.md`.
 
 ## Lépések
 
@@ -18,12 +18,12 @@ Böngészőből / telefonról megnyitható **Muffe Plan**. A `main` ág a letöl
 ## Kimenet
 
 - `dist/index.html` + JS bundle
-- Nyilvános URL: GitHub Pages a `main` után
+- Nyilvános URL (ha a Pages be van kapcsolva)
 
 ## Különleges esetek
 
-- Privát GitHub repo Free csomagon: a Pages publikálás elhasalhat. Ekkor GitHub Pro, vagy a Pages bekapcsolása a repo Settingsben kell.
+- Privát GitHub repo: Pages-t egyszer be kell kapcsolni (Settings → Pages → GitHub Actions).
 - A próba (trycloudflare) link nem tartós; a Pages-cím marad.
-- AsyncStorage weben localStorage-t használ — OK próbaüzemhez.
-- Mobil Expo Go / APK külön irányelv (EAS) — ez csak web.
+- AsyncStorage weben localStorage — az adat a telefonon / böngészőben marad, nem a GitHubon.
+- Mobil Expo Go / EAS APK külön irányelv — ez csak web PWA.
 - `_expo` mappa miatt a `dist/.nojekyll` kötelező.

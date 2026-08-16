@@ -8,3 +8,4 @@ Folyamatleírások a **Muffe Plan** projekthez. Az ügynök először itt néz u
 | [fejlesztoi-inditas.md](fejlesztoi-inditas.md) | Expo / web indítás |
 | [tetelek-rogzites.md](tetelek-rogzites.md) | Muffe / Reduzir / Abzweig UX |
 | [web-deploy.md](web-deploy.md) | Webes build és publikálás |
+| [telepites.md](telepites.md) | PWA Letöltés (nem APK/zip) |
