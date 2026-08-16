@@ -65,6 +65,9 @@ Ismétlődő, determinisztikus lépések:
 
 - `directives/` — rövid SOP-ok (mit kell tenni)
 - `execution/` — scriptek (pl. typecheck)
+- `.cursor/rules/workflow.mdc` — Cursor always-on munkamód (olvasás → terv → kód → ellenőrzés)
+- `.cursor/skills/` — on-demand: `/plan-first`, `/verify-before-done`
+- Cursorban nagyobb feladathoz: **Plan Mode (Shift+Tab)**
 
 UI-fejlesztésnél a fő munka a `src/` kód — a scriptek a ellenőrzésre / buildre valók, nem helyettesítik az appot.
 

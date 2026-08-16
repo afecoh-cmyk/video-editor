@@ -1,0 +1,43 @@
+---
+description: Muffe Plan mindig érvényes munkamód — olvasás, terv, ellenőrzés, main védelem
+alwaysApply: true
+---
+
+# Munkamód (always-on)
+
+Kövesd ezt a sorrendet minden feladatnál. Kommunikáció **magyarul**.
+
+## 1. Előbb nézd, aztán kódolj
+
+- Olvasd el a releváns kódot, `docs/`, `directives/`, `HAZIREND.md`, `AGENTS.md` — **ne tippelj**.
+- Kis, célzott változtatás; ne refaktorálj a scope-on kívül.
+- Ne hozd vissza a régi video-editor kódot.
+- Ne commitolj secretet / `.env`-et / kulcsokat.
+
+## 2. Tervezz, ha nem egyértelmű
+
+Több fájlos, architektúrát érintő, vagy nem egyértelmű feladatnál:
+
+- Előbb rövid terv (Plan Mode / skill: `/plan-first`).
+- Nagyobb feladathoz Cursorban: **Plan Mode (Shift+Tab)**.
+- Kódolás csak a terv felhasználói jóváhagyása után (vagy ha a user egyértelműen „csak csináld” jellegű, egyértelmű egyfájlos javítást kér).
+
+## 3. Ellenőrizz „kész” / commit / PR előtt
+
+Skill: `/verify-before-done`. Kötelező:
+
+1. `bash execution/typecheck.sh`
+2. Ha geometria / pipe / rajz érintett: `npx --yes tsx execution/check-pipe-geometry.ts`
+3. UI változásnál: működő **dev tesztlink** a felhasználónak
+
+Ha a check nem futtatható, írd meg miért — ne állítsd „késznek” check nélkül.
+
+## 4. Main ág
+
+- Változtatás először fejlesztői ágon + PR-ban.
+- **Main-re csak akkor merge / push**, ha a felhasználó külön, egyértelműen kéri (pl. „mehet mainra”, „merge”).
+- Kivétel: ha a user ebben a feladatban kifejezetten a sablonok / docs mainre feltöltését kérte.
+
+## 5. UX prioritás
+
+Gyors felírás, nagy +/− gombok, kevés gépelés. Ne töröld a muffe / reduzir / abzweig +/− UX-et „szépítés” címén.
