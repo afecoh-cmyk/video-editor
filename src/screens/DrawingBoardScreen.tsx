@@ -26,6 +26,7 @@ import {
   resolveDrawnStroke,
   resolveMovedPair,
   simplifyPipePath,
+  snapBranchPairToExisting,
   snapPipePathAngles,
 } from '../pipeGeometry';
 import {
@@ -35,9 +36,11 @@ import {
   type MarkerGroupKey,
 } from '../markerLayout';
 import {
+  addCanvasAnnotation,
   addCanvasMarker,
   addCanvasStrokePair,
   convertMarkersToParts,
+  deleteCanvasAnnotation,
   deleteProject,
   extendCanvasStrokePair,
   getCanvas,
@@ -46,6 +49,7 @@ import {
   mergeCanvasStrokePair,
   moveCanvasStrokePair,
   undoCanvasAction,
+  updateCanvasAnnotation,
   updateCanvasStrokePair,
 } from '../storage';
 import {
@@ -54,6 +58,8 @@ import {
   kindPrimaryDmLabel,
   kindSecondDmLabel,
   partKindLabel,
+  type CanvasAnnotation,
+  type CanvasAnnotationKind,
   type CanvasMarker,
   type CanvasPoint,
   type CanvasStroke,
@@ -63,7 +69,7 @@ import {
 import { colors, radius, shadow, spacing } from '../theme';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'DrawingBoard'>;
-type Mode = 'pan' | 'draw' | 'mark' | 'pipe';
+type Mode = 'pan' | 'draw' | 'mark' | 'pipe' | 'element';
 type ViewTransform = { scale: number; offsetX: number; offsetY: number };
 
 const MIN_SCALE = 0.35;
@@ -78,6 +84,7 @@ export function DrawingBoardScreen({ navigation, route }: Props) {
   const [mode, setMode] = useState<Mode>('pan');
   const [markers, setMarkers] = useState<CanvasMarker[]>([]);
   const [strokes, setStrokes] = useState<CanvasStroke[]>([]);
+  const [annotations, setAnnotations] = useState<CanvasAnnotation[]>([]);
   const [parts, setParts] = useState<PartEntry[]>([]);
   const [draftPoints, setDraftPoints] = useState<CanvasPoint[]>([]);
   const [size, setSize] = useState({ width: 1, height: 1 });
@@ -88,6 +95,13 @@ export function DrawingBoardScreen({ navigation, route }: Props) {
   const [selectedGroupKey, setSelectedGroupKey] = useState<MarkerGroupKey | null>(null);
   const [pipeSpacing, setPipeSpacing] = useState(28);
   const [pipeDragOffset, setPipeDragOffset] = useState<CanvasPoint | null>(null);
+  const [vertexDraftCenter, setVertexDraftCenter] = useState<CanvasPoint[] | null>(null);
+  const [annotationModalOpen, setAnnotationModalOpen] = useState(false);
+  const [editingAnnotationId, setEditingAnnotationId] = useState<string | null>(null);
+  const [pendingAnnotationPoint, setPendingAnnotationPoint] = useState<CanvasPoint | null>(null);
+  const [annotationKind, setAnnotationKind] = useState<CanvasAnnotationKind>('dose');
+  const [annotationQuantity, setAnnotationQuantity] = useState<1 | 2>(1);
+  const [annotationDragPoint, setAnnotationDragPoint] = useState<CanvasPoint | null>(null);
   const [kind, setKind] = useState<PartKind>('muffe');
   const [diameter, setDiameter] = useState('315');
   const [diameterTo, setDiameterTo] = useState('250');
@@ -106,9 +120,25 @@ export function DrawingBoardScreen({ navigation, route }: Props) {
     startedAt: number;
   } | null>(null);
   const pipeTapRef = useRef<{ x: number; y: number; moved: boolean } | null>(null);
+  const vertexDragRef = useRef<{
+    pairId: string;
+    index: number;
+    x: number;
+    y: number;
+    moved: boolean;
+    center: CanvasPoint[];
+  } | null>(null);
+  const vertexDraftCenterRef = useRef<CanvasPoint[] | null>(null);
+  const annotationTapRef = useRef<{
+    id: string | null;
+    x: number;
+    y: number;
+    moved: boolean;
+  } | null>(null);
   const pipeDragOffsetRef = useRef<CanvasPoint | null>(null);
   const selectedPairIdRef = useRef<string | null>(null);
   const strokesRef = useRef<CanvasStroke[]>([]);
+  const annotationsRef = useRef<CanvasAnnotation[]>([]);
   const finishPipeMoveRef = useRef<(dx: number, dy: number) => Promise<void>>(async () => {});
   const panDragRef = useRef<{
     x: number;
@@ -123,11 +153,14 @@ export function DrawingBoardScreen({ navigation, route }: Props) {
   const openConvertRef = useRef<() => void>(() => {});
   const pipeSelectionRef = useRef<(x: number, y: number) => void>(() => {});
   const clearPipeDragRef = useRef<() => void>(() => {});
+  const openAnnotationEditorRef = useRef<(id: string | null, point: CanvasPoint) => void>(() => {});
+  const finishAnnotationMoveRef = useRef<(id: string, point: CanvasPoint) => Promise<void>>(async () => {});
   const suppressTapUntilRef = useRef(0);
   const lastMarkerAtRef = useRef(0);
   const viewRef = useRef(view);
   selectedPairIdRef.current = selectedPairId;
   strokesRef.current = strokes;
+  annotationsRef.current = annotations;
   const pinchRef = useRef<{
     distance: number;
     startScale: number;
@@ -165,6 +198,7 @@ export function DrawingBoardScreen({ navigation, route }: Props) {
     });
     setMarkers(canvas.markers);
     setStrokes(canvas.strokes);
+    setAnnotations(canvas.annotations);
     setParts(projectParts);
   }, [navigation, projectId]);
 
@@ -201,9 +235,12 @@ export function DrawingBoardScreen({ navigation, route }: Props) {
       };
       markerTapRef.current = null;
       pipeTapRef.current = null;
+      vertexDragRef.current = null;
+      vertexDraftCenterRef.current = null;
       panDragRef.current = null;
       pipeDragOffsetRef.current = null;
       clearPipeDragRef.current();
+      setVertexDraftCenter(null);
       suppressTapUntilRef.current = Date.now() + 400;
       drawingRef.current = [];
       setDraftPoints([]);
@@ -222,12 +259,14 @@ export function DrawingBoardScreen({ navigation, route }: Props) {
           mode === 'draw' ||
           mode === 'mark' ||
           mode === 'pipe' ||
+          mode === 'element' ||
           mode === 'pan',
         onMoveShouldSetPanResponder: (event) =>
           event.nativeEvent.touches.length >= 2 ||
           mode === 'draw' ||
           mode === 'mark' ||
           mode === 'pipe' ||
+          mode === 'element' ||
           mode === 'pan',
         onPanResponderGrant: (event) => {
           if (event.nativeEvent.touches.length >= 2) {
@@ -254,9 +293,64 @@ export function DrawingBoardScreen({ navigation, route }: Props) {
             return;
           }
           if (mode === 'pipe') {
+            const selectedPair = selectedPairIdRef.current;
+            if (selectedPair) {
+              const pair = strokesRef.current.filter((stroke) => stroke.pairId === selectedPair);
+              const vl = pair.find((stroke) => stroke.pipeKind === 'vorlauf');
+              const rl = pair.find((stroke) => stroke.pipeKind === 'ruecklauf');
+              if (vl && rl) {
+                const count = Math.min(vl.points.length, rl.points.length);
+                const center = Array.from({ length: count }, (_, index) => ({
+                  x: (vl.points[index].x + rl.points[index].x) / 2,
+                  y: (vl.points[index].y + rl.points[index].y) / 2,
+                }));
+                let closest: { index: number; distance: number } | null = null;
+                for (let index = 0; index < center.length; index += 1) {
+                  const point = center[index];
+                  const x = point.x * size.width * viewRef.current.scale + viewRef.current.offsetX;
+                  const y = point.y * size.height * viewRef.current.scale + viewRef.current.offsetY;
+                  const distance = Math.hypot(event.nativeEvent.locationX - x, event.nativeEvent.locationY - y);
+                  if (distance <= 24 && (!closest || distance < closest.distance)) {
+                    closest = { index, distance };
+                  }
+                }
+                if (closest) {
+                  vertexDragRef.current = {
+                    pairId: selectedPair,
+                    index: closest.index,
+                    x: event.nativeEvent.locationX,
+                    y: event.nativeEvent.locationY,
+                    moved: false,
+                    center,
+                  };
+                  vertexDraftCenterRef.current = center;
+                  setVertexDraftCenter(center);
+                  return;
+                }
+              }
+            }
             pipeTapRef.current = {
               x: event.nativeEvent.locationX,
               y: event.nativeEvent.locationY,
+              moved: false,
+            };
+            return;
+          }
+          if (mode === 'element') {
+            const { locationX, locationY } = event.nativeEvent;
+            let closest: { id: string; distance: number } | null = null;
+            for (const annotation of annotationsRef.current) {
+              const x = annotation.x * size.width * viewRef.current.scale + viewRef.current.offsetX;
+              const y = annotation.y * size.height * viewRef.current.scale + viewRef.current.offsetY;
+              const distance = Math.hypot(locationX - x, locationY - y);
+              if (distance <= 32 && (!closest || distance < closest.distance)) {
+                closest = { id: annotation.id, distance };
+              }
+            }
+            annotationTapRef.current = {
+              id: closest?.id ?? null,
+              x: locationX,
+              y: locationY,
               moved: false,
             };
             return;
@@ -330,13 +424,41 @@ export function DrawingBoardScreen({ navigation, route }: Props) {
             }
             return;
           }
+          if (mode === 'pipe' && vertexDragRef.current) {
+            const drag = vertexDragRef.current;
+            const movement = Math.hypot(
+              event.nativeEvent.locationX - drag.x,
+              event.nativeEvent.locationY - drag.y
+            );
+            if (movement > 6) drag.moved = true;
+            if (drag.moved) {
+              const point = screenToWorld(event.nativeEvent.locationX, event.nativeEvent.locationY);
+              const next = drag.center.map((item, index) => (index === drag.index ? point : item));
+              vertexDraftCenterRef.current = next;
+              setVertexDraftCenter(next);
+            }
+            return;
+          }
+          if (mode === 'element' && annotationTapRef.current) {
+            const movement = Math.hypot(
+              event.nativeEvent.locationX - annotationTapRef.current.x,
+              event.nativeEvent.locationY - annotationTapRef.current.y
+            );
+            if (movement > 10) annotationTapRef.current.moved = true;
+            if (annotationTapRef.current.moved && annotationTapRef.current.id) {
+              setAnnotationDragPoint(
+                screenToWorld(event.nativeEvent.locationX, event.nativeEvent.locationY)
+              );
+            }
+            return;
+          }
           if (pinchRef.current || mode !== 'draw') return;
           const { locationX, locationY } = event.nativeEvent;
           const next = screenToWorld(locationX, locationY);
           drawingRef.current = [...drawingRef.current, next];
           setDraftPoints(drawingRef.current);
         },
-        onPanResponderRelease: async () => {
+        onPanResponderRelease: async (event) => {
           if (pinchRef.current) {
             pinchRef.current = null;
             drawingRef.current = [];
@@ -363,6 +485,31 @@ export function DrawingBoardScreen({ navigation, route }: Props) {
             return;
           }
           if (mode === 'pipe') {
+            const vertexDrag = vertexDragRef.current;
+            if (vertexDrag) {
+              vertexDragRef.current = null;
+              const draftCenter = vertexDraftCenterRef.current;
+              if (vertexDrag.moved && draftCenter) {
+                const cleaned = snapPipePathAngles(draftCenter, size);
+                let nextPair = makePipePair(cleaned, size, pipeSpacing);
+                if (vertexDrag.index === 0 || vertexDrag.index === cleaned.length - 1) {
+                  const other = strokesRef.current.filter(
+                    (stroke) => stroke.pairId !== vertexDrag.pairId
+                  );
+                  nextPair = snapBranchPairToExisting(
+                    nextPair,
+                    other,
+                    size,
+                    72 / viewRef.current.scale
+                  );
+                }
+                await updateCanvasStrokePair(vertexDrag.pairId, nextPair[0], nextPair[1]);
+                await load();
+              }
+              vertexDraftCenterRef.current = null;
+              setVertexDraftCenter(null);
+              return;
+            }
             const tap = pipeTapRef.current;
             const offset = pipeDragOffsetRef.current;
             pipeTapRef.current = null;
@@ -375,6 +522,21 @@ export function DrawingBoardScreen({ navigation, route }: Props) {
             if (tap && !tap.moved && Date.now() >= suppressTapUntilRef.current) {
               pipeSelectionRef.current(tap.x, tap.y);
             }
+            return;
+          }
+          if (mode === 'element') {
+            const tap = annotationTapRef.current;
+            annotationTapRef.current = null;
+            const point = screenToWorld(
+              event.nativeEvent.locationX,
+              event.nativeEvent.locationY
+            );
+            if (tap?.id && tap.moved) {
+              await finishAnnotationMoveRef.current(tap.id, point);
+            } else if (tap && !tap.moved && Date.now() >= suppressTapUntilRef.current) {
+              openAnnotationEditorRef.current(tap.id, point);
+            }
+            setAnnotationDragPoint(null);
             return;
           }
           const points = drawingRef.current;
@@ -396,9 +558,14 @@ export function DrawingBoardScreen({ navigation, route }: Props) {
           pinchRef.current = null;
           markerTapRef.current = null;
           pipeTapRef.current = null;
+          vertexDragRef.current = null;
+          vertexDraftCenterRef.current = null;
+          annotationTapRef.current = null;
           panDragRef.current = null;
           pipeDragOffsetRef.current = null;
           setPipeDragOffset(null);
+          setVertexDraftCenter(null);
+          setAnnotationDragPoint(null);
           drawingRef.current = [];
           setDraftPoints([]);
         },
@@ -556,6 +723,88 @@ export function DrawingBoardScreen({ navigation, route }: Props) {
   finishPipeMoveRef.current = finishPipeMove;
   clearPipeDragRef.current = () => setPipeDragOffset(null);
 
+  const snapDoseToPipeEnd = (point: CanvasPoint): CanvasPoint => {
+    let closest: { point: CanvasPoint; distance: number } | null = null;
+    const pairIds = new Set(strokesRef.current.map((stroke) => stroke.pairId).filter(Boolean));
+    for (const pairId of pairIds) {
+      const pair = strokesRef.current.filter((stroke) => stroke.pairId === pairId);
+      const vl = pair.find((stroke) => stroke.pipeKind === 'vorlauf');
+      const rl = pair.find((stroke) => stroke.pipeKind === 'ruecklauf');
+      if (!vl || !rl) continue;
+      const count = Math.min(vl.points.length, rl.points.length);
+      for (const index of [0, count - 1]) {
+        if (index < 0) continue;
+        const endpoint = {
+          x: (vl.points[index].x + rl.points[index].x) / 2,
+          y: (vl.points[index].y + rl.points[index].y) / 2,
+        };
+        const distance = Math.hypot(
+          (point.x - endpoint.x) * size.width * viewRef.current.scale,
+          (point.y - endpoint.y) * size.height * viewRef.current.scale
+        );
+        if (!closest || distance < closest.distance) closest = { point: endpoint, distance };
+      }
+    }
+    return closest && closest.distance <= 72 ? closest.point : point;
+  };
+
+  const openAnnotationEditor = (id: string | null, point: CanvasPoint) => {
+    const existing = id ? annotationsRef.current.find((item) => item.id === id) : null;
+    setEditingAnnotationId(existing?.id ?? null);
+    setPendingAnnotationPoint(existing ? { x: existing.x, y: existing.y } : point);
+    setAnnotationKind(existing?.kind ?? 'dose');
+    setAnnotationQuantity(existing?.quantity ?? 1);
+    setAnnotationModalOpen(true);
+  };
+  openAnnotationEditorRef.current = openAnnotationEditor;
+
+  finishAnnotationMoveRef.current = async (id, point) => {
+    const existing = annotationsRef.current.find((item) => item.id === id);
+    await updateCanvasAnnotation({
+      id,
+      point: existing?.kind === 'dose' ? snapDoseToPipeEnd(point) : point,
+    });
+    await load();
+  };
+
+  const saveAnnotation = async () => {
+    if (!pendingAnnotationPoint) return;
+    if (editingAnnotationId) {
+      await updateCanvasAnnotation({
+        id: editingAnnotationId,
+        point:
+          annotationKind === 'dose'
+            ? snapDoseToPipeEnd(pendingAnnotationPoint)
+            : pendingAnnotationPoint,
+        kind: annotationKind,
+        quantity: annotationKind === 'daemmpolster' ? annotationQuantity : 1,
+      });
+    } else {
+      await addCanvasAnnotation({
+        projectId,
+        point:
+          annotationKind === 'dose'
+            ? snapDoseToPipeEnd(pendingAnnotationPoint)
+            : pendingAnnotationPoint,
+        kind: annotationKind,
+        quantity: annotationKind === 'daemmpolster' ? annotationQuantity : 1,
+      });
+    }
+    setAnnotationModalOpen(false);
+    setEditingAnnotationId(null);
+    setPendingAnnotationPoint(null);
+    await load();
+  };
+
+  const removeAnnotation = async () => {
+    if (!editingAnnotationId) return;
+    await deleteCanvasAnnotation(editingAnnotationId);
+    setAnnotationModalOpen(false);
+    setEditingAnnotationId(null);
+    setPendingAnnotationPoint(null);
+    await load();
+  };
+
   const changePipeSpacing = async (delta: number) => {
     if (!selectedPairId) return;
     const pair = strokes.filter((stroke) => stroke.pairId === selectedPairId);
@@ -608,6 +857,11 @@ export function DrawingBoardScreen({ navigation, route }: Props) {
     setMode(next);
     pipeDragOffsetRef.current = null;
     setPipeDragOffset(null);
+    vertexDragRef.current = null;
+    vertexDraftCenterRef.current = null;
+    setVertexDraftCenter(null);
+    annotationTapRef.current = null;
+    setAnnotationDragPoint(null);
     if (next !== 'pipe') setSelectedPairId(null);
   };
 
@@ -645,6 +899,20 @@ export function DrawingBoardScreen({ navigation, route }: Props) {
   );
   const draftPair = draftPoints.length ? makePipePair(draftPoints, size) : null;
   const pipeDisplay = useMemo(() => {
+    if (vertexDraftCenter && selectedPairId) {
+      const [vorlauf, ruecklauf] = makePipePair(vertexDraftCenter, size, pipeSpacing);
+      return {
+        hint: 'move' as const,
+        mergeTargetId: null as string | null,
+        strokes: strokes.map((stroke) => {
+          if (stroke.pairId !== selectedPairId) return stroke;
+          return {
+            ...stroke,
+            points: stroke.pipeKind === 'ruecklauf' ? ruecklauf : vorlauf,
+          };
+        }),
+      };
+    }
     if (!pipeDragOffset || !selectedPairId) {
       return { strokes, mergeTargetId: null as string | null, hint: null as 'merge' | 'branch' | 'move' | null };
     }
@@ -693,7 +961,7 @@ export function DrawingBoardScreen({ navigation, route }: Props) {
         };
       }),
     };
-  }, [pipeDragOffset, selectedPairId, size, strokes, view.scale]);
+  }, [pipeDragOffset, pipeSpacing, selectedPairId, size, strokes, vertexDraftCenter, view.scale]);
   const movingMarkerIds = useMemo(() => {
     if (!selectedPairId) return new Set<string>();
     const strokeIds = new Set(
@@ -710,6 +978,18 @@ export function DrawingBoardScreen({ navigation, route }: Props) {
           y: pipeDragOffset.y * size.height * view.scale,
         }
       : { x: 0, y: 0 };
+  const selectedPairCenter = useMemo(() => {
+    if (mode !== 'pipe' || !selectedPairId) return [];
+    const pair = pipeDisplay.strokes.filter((stroke) => stroke.pairId === selectedPairId);
+    const vl = pair.find((stroke) => stroke.pipeKind === 'vorlauf');
+    const rl = pair.find((stroke) => stroke.pipeKind === 'ruecklauf');
+    if (!vl || !rl) return [];
+    const count = Math.min(vl.points.length, rl.points.length);
+    return Array.from({ length: count }, (_, index) => ({
+      x: (vl.points[index].x + rl.points[index].x) / 2,
+      y: (vl.points[index].y + rl.points[index].y) / 2,
+    }));
+  }, [mode, pipeDisplay.strokes, selectedPairId]);
 
   const confirmProjectDelete = () => {
     setProjectMenuOpen(false);
@@ -723,6 +1003,7 @@ export function DrawingBoardScreen({ navigation, route }: Props) {
         <ModeButton active={mode === 'draw'} label="✎" onPress={() => changeMode('draw')} />
         <ModeButton active={mode === 'mark'} label="＋ X" onPress={() => changeMode('mark')} />
         <ModeButton active={mode === 'pipe'} label="║" onPress={() => changeMode('pipe')} />
+        <ModeButton active={mode === 'element'} label="Elem" onPress={() => changeMode('element')} />
         <AnimatedPressable
           style={[styles.toolButton, openMarkers.length > 0 && styles.batchButton]}
           onPress={openConvert}
@@ -880,7 +1161,49 @@ export function DrawingBoardScreen({ navigation, route }: Props) {
           );
         })}
 
-        {markers.length === 0 && strokes.length === 0 ? (
+        {annotations.map((annotation) => {
+          const point =
+            annotationTapRef.current?.id === annotation.id && annotationDragPoint
+              ? annotationDragPoint
+              : annotation;
+          const left = point.x * size.width * view.scale + view.offsetX;
+          const top = point.y * size.height * view.scale + view.offsetY;
+          const isDose = annotation.kind === 'dose';
+          return (
+            <View
+              key={annotation.id}
+              pointerEvents="none"
+              style={[
+                styles.annotation,
+                isDose ? styles.doseAnnotation : styles.daemmAnnotation,
+                { left: left - (isDose ? 25 : 22), top: top - 16 },
+              ]}
+            >
+              <Text
+                selectable={false}
+                style={isDose ? styles.doseAnnotationText : styles.daemmAnnotationText}
+              >
+                {isDose ? 'DOSE' : `${annotation.quantity}/40`}
+              </Text>
+            </View>
+          );
+        })}
+
+        {selectedPairCenter.map((point, index) => (
+          <View
+            key={`vertex-${selectedPairId}-${index}`}
+            pointerEvents="none"
+            style={[
+              styles.vertexHandle,
+              {
+                left: point.x * size.width * view.scale + view.offsetX - 8,
+                top: point.y * size.height * view.scale + view.offsetY - 8,
+              },
+            ]}
+          />
+        ))}
+
+        {markers.length === 0 && strokes.length === 0 && annotations.length === 0 ? (
           <View pointerEvents="none" style={styles.help}>
             <Text selectable={false} style={styles.helpTitle}>Rajzold fel a szakaszt</Text>
             <Text selectable={false} style={styles.helpText}>
@@ -929,6 +1252,8 @@ export function DrawingBoardScreen({ navigation, route }: Props) {
               ? 'Rajz mód · a lap rögzítve marad az ujjad alatt'
             : mode === 'mark'
               ? `${openMarkers.length} aktuális X · koppints X-re vagy tegyél újat`
+            : mode === 'element'
+              ? 'Elem mód · koppints új Dose/Dämmpolster helyére, vagy húzd a meglévőt'
               : selectedPairId
                 ? pipeDisplay.hint === 'merge'
                   ? 'Elengedve a végre olvad'
@@ -1047,6 +1372,73 @@ export function DrawingBoardScreen({ navigation, route }: Props) {
           </View>
         </View>
       ) : null}
+
+
+      <Modal
+        visible={annotationModalOpen}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setAnnotationModalOpen(false)}
+      >
+        <Pressable style={styles.annotationModalBackdrop} onPress={() => setAnnotationModalOpen(false)}>
+          <Pressable style={styles.annotationModalCard} onPress={() => {}}>
+            <Text style={styles.sheetTitle}>
+              {editingAnnotationId ? 'Rajzi elem szerkesztése' : 'Rajzi elem hozzáadása'}
+            </Text>
+            <Text style={styles.annotationModalHint}>Válaszd ki, mi kerüljön erre a helyre.</Text>
+            <View style={styles.annotationChoiceRow}>
+              <AnimatedPressable
+                style={[styles.annotationChoice, annotationKind === 'dose' && styles.annotationChoiceActive]}
+                onPress={() => setAnnotationKind('dose')}
+              >
+                <Text style={[
+                  styles.annotationChoiceText,
+                  annotationKind === 'dose' && styles.annotationChoiceTextActive,
+                ]}>Dose</Text>
+              </AnimatedPressable>
+              <AnimatedPressable
+                style={[
+                  styles.annotationChoice,
+                  annotationKind === 'daemmpolster' && styles.annotationChoiceActive,
+                ]}
+                onPress={() => setAnnotationKind('daemmpolster')}
+              >
+                <Text style={[
+                  styles.annotationChoiceText,
+                  annotationKind === 'daemmpolster' && styles.annotationChoiceTextActive,
+                ]}>Dämmpolster</Text>
+              </AnimatedPressable>
+            </View>
+            {annotationKind === 'daemmpolster' ? (
+              <View style={styles.annotationChoiceRow}>
+                {([1, 2] as const).map((quantity) => (
+                  <AnimatedPressable
+                    key={quantity}
+                    style={[
+                      styles.annotationChoice,
+                      annotationQuantity === quantity && styles.annotationChoiceActive,
+                    ]}
+                    onPress={() => setAnnotationQuantity(quantity)}
+                  >
+                    <Text style={[
+                      styles.annotationChoiceText,
+                      annotationQuantity === quantity && styles.annotationChoiceTextActive,
+                    ]}>{quantity}/40</Text>
+                  </AnimatedPressable>
+                ))}
+              </View>
+            ) : null}
+            <AnimatedPressable style={styles.saveButton} onPress={saveAnnotation}>
+              <Text style={styles.saveText}>Mentés</Text>
+            </AnimatedPressable>
+            {editingAnnotationId ? (
+              <AnimatedPressable style={styles.annotationDelete} onPress={removeAnnotation}>
+                <Text style={styles.annotationDeleteText}>Elem törlése</Text>
+              </AnimatedPressable>
+            ) : null}
+          </Pressable>
+        </Pressable>
+      </Modal>
     </View>
   );
 }
@@ -1177,6 +1569,34 @@ const styles = StyleSheet.create({
   xTextOpen: { color: colors.danger },
   xTextDone: { color: colors.total },
   xTextSelected: { color: colors.accent },
+  annotation: {
+    position: 'absolute',
+    minWidth: 44,
+    height: 32,
+    paddingHorizontal: 6,
+    borderRadius: 6,
+    alignItems: 'center',
+    justifyContent: 'center',
+    ...shadow.card,
+  },
+  doseAnnotation: {
+    minWidth: 50,
+    backgroundColor: '#fff',
+    borderWidth: 2,
+    borderColor: '#154d78',
+  },
+  doseAnnotationText: { color: '#154d78', fontSize: 11, fontWeight: '900' },
+  daemmAnnotation: { backgroundColor: '#fff3c4', borderWidth: 2, borderColor: '#b7791f' },
+  daemmAnnotationText: { color: '#7a4b00', fontSize: 14, fontWeight: '900' },
+  vertexHandle: {
+    position: 'absolute',
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    backgroundColor: '#fff',
+    borderWidth: 3,
+    borderColor: colors.accent,
+  },
   tally: {
     maxHeight: 52,
     backgroundColor: colors.surface,
@@ -1267,6 +1687,35 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   confirmDeleteText: { color: '#fff', fontWeight: '800' },
+  annotationModalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.48)',
+    justifyContent: 'center',
+    padding: spacing.lg,
+  },
+  annotationModalCard: {
+    backgroundColor: colors.surface,
+    borderRadius: radius.lg,
+    padding: spacing.lg,
+    ...shadow.bar,
+  },
+  annotationModalHint: { color: colors.muted, marginTop: -2, marginBottom: spacing.md },
+  annotationChoiceRow: { flexDirection: 'row', gap: 8, marginBottom: spacing.md },
+  annotationChoice: {
+    flex: 1,
+    minHeight: 48,
+    borderRadius: radius.sm,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.bg,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  annotationChoiceActive: { backgroundColor: colors.accent, borderColor: colors.accent },
+  annotationChoiceText: { color: colors.ink, fontSize: 15, fontWeight: '800' },
+  annotationChoiceTextActive: { color: '#fff' },
+  annotationDelete: { marginTop: 10, paddingVertical: 12, alignItems: 'center' },
+  annotationDeleteText: { color: colors.danger, fontWeight: '800' },
   convertOverlay: {
     position: 'absolute',
     top: 0,

@@ -146,6 +146,20 @@ export type CanvasMarker = {
   createdAt: string;
 };
 
+export type CanvasAnnotationKind = 'dose' | 'daemmpolster';
+
+/** A rajzon szabadon elhelyezhető terepi jel: Hausanschluss Dose vagy Dämmpolster. */
+export type CanvasAnnotation = {
+  id: string;
+  projectId: string;
+  kind: CanvasAnnotationKind;
+  x: number;
+  y: number;
+  /** Dämmpolsternél a rajzi jelölés első száma: 1/40 vagy 2/40. */
+  quantity: 1 | 2;
+  createdAt: string;
+};
+
 /** @deprecated use PartEntry — kept alias for older imports */
 export type MuffEntry = PartEntry;
 
@@ -162,6 +176,7 @@ export type AppData = {
   parts: PartEntry[];
   canvasMarkers: CanvasMarker[];
   canvasStrokes: CanvasStroke[];
+  canvasAnnotations?: CanvasAnnotation[];
   /** Utolsó csőtoldás előtti állapot, hogy a visszavonás ne törölje a teljes párt. */
   canvasPairUndo?: CanvasPairUndo | null;
 };

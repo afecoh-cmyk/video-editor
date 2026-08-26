@@ -59,6 +59,20 @@ Egy szakasz drót / ellenállás mérése (elejétől végéig, az összes muffo
 
 A Project később kaphat `wireSystem` mezőt (`nor` \| `brandes`), hogy a szakasz alapértelmezett rendszere meglegyen.
 
+## Entity: CanvasAnnotation
+
+A rajzon szabadon elhelyezhető és mozgatható terepi jel.
+
+| Mező | Típus | Megjegyzés |
+|---|---|---|
+| id | uuid | |
+| projectId | uuid | FK → Project |
+| kind | enum | `dose` \| `daemmpolster` |
+| x, y | number | Relatív rajzkoordináta |
+| quantity | 1 \| 2 | Dämmpolster jelölése: `1/40` vagy `2/40`; Dose esetén 1 |
+
+A Dämmpolster laminált anyag: 1 m hosszú, 40 mm széles.
+
 ## Tárolás (MVP)
 
 - AsyncStorage (`muffe-plan:v2`), v1 muff adatok automatikus migrációval

@@ -3,6 +3,8 @@ import * as Crypto from 'expo-crypto';
 import {
   emptyKindTotals,
   type AppData,
+  type CanvasAnnotation,
+  type CanvasAnnotationKind,
   type CanvasMarker,
   type CanvasPoint,
   type CanvasStroke,
@@ -21,6 +23,7 @@ const emptyData = (): AppData => ({
   parts: [],
   canvasMarkers: [],
   canvasStrokes: [],
+  canvasAnnotations: [],
 });
 
 type LegacyMuff = {
@@ -63,6 +66,7 @@ async function migrateIfNeeded(): Promise<void> {
         parts,
         canvasMarkers: [],
         canvasStrokes: [],
+        canvasAnnotations: [],
       })
     );
   } catch {
@@ -83,6 +87,7 @@ async function read(): Promise<AppData> {
         parts: parsed.parts,
         canvasMarkers: parsed.canvasMarkers ?? [],
         canvasStrokes: parsed.canvasStrokes ?? [],
+        canvasAnnotations: parsed.canvasAnnotations ?? [],
         canvasPairUndo: parsed.canvasPairUndo ?? null,
       };
     }
@@ -103,6 +108,7 @@ async function read(): Promise<AppData> {
         })),
         canvasMarkers: [],
         canvasStrokes: [],
+        canvasAnnotations: [],
       };
     }
     return emptyData();
@@ -191,6 +197,7 @@ export async function deleteProject(id: string): Promise<void> {
   data.parts = data.parts.filter((m) => m.projectId !== id);
   data.canvasMarkers = data.canvasMarkers.filter((m) => m.projectId !== id);
   data.canvasStrokes = data.canvasStrokes.filter((s) => s.projectId !== id);
+  data.canvasAnnotations = (data.canvasAnnotations ?? []).filter((item) => item.projectId !== id);
   if (data.canvasPairUndo?.projectId === id) data.canvasPairUndo = null;
   await write(data);
 }
@@ -198,12 +205,65 @@ export async function deleteProject(id: string): Promise<void> {
 export async function getCanvas(projectId: string): Promise<{
   markers: CanvasMarker[];
   strokes: CanvasStroke[];
+  annotations: CanvasAnnotation[];
 }> {
   const data = await read();
   return {
     markers: data.canvasMarkers.filter((m) => m.projectId === projectId),
     strokes: data.canvasStrokes.filter((s) => s.projectId === projectId),
+    annotations: (data.canvasAnnotations ?? []).filter((item) => item.projectId === projectId),
   };
+}
+
+export async function addCanvasAnnotation(input: {
+  projectId: string;
+  point: CanvasPoint;
+  kind: CanvasAnnotationKind;
+  quantity?: 1 | 2;
+}): Promise<CanvasAnnotation> {
+  const data = await read();
+  const annotation: CanvasAnnotation = {
+    id: await newId(),
+    projectId: input.projectId,
+    kind: input.kind,
+    x: input.point.x,
+    y: input.point.y,
+    quantity: input.kind === 'daemmpolster' ? input.quantity ?? 1 : 1,
+    createdAt: new Date().toISOString(),
+  };
+  data.canvasAnnotations = [...(data.canvasAnnotations ?? []), annotation];
+  touchProject(data, input.projectId);
+  await write(data);
+  return annotation;
+}
+
+export async function updateCanvasAnnotation(input: {
+  id: string;
+  point?: CanvasPoint;
+  kind?: CanvasAnnotationKind;
+  quantity?: 1 | 2;
+}): Promise<void> {
+  const data = await read();
+  const annotation = (data.canvasAnnotations ?? []).find((item) => item.id === input.id);
+  if (!annotation) return;
+  if (input.point) {
+    annotation.x = input.point.x;
+    annotation.y = input.point.y;
+  }
+  if (input.kind) annotation.kind = input.kind;
+  if (input.quantity) annotation.quantity = input.quantity;
+  if (annotation.kind === 'dose') annotation.quantity = 1;
+  touchProject(data, annotation.projectId);
+  await write(data);
+}
+
+export async function deleteCanvasAnnotation(id: string): Promise<void> {
+  const data = await read();
+  const annotation = (data.canvasAnnotations ?? []).find((item) => item.id === id);
+  if (!annotation) return;
+  data.canvasAnnotations = (data.canvasAnnotations ?? []).filter((item) => item.id !== id);
+  touchProject(data, annotation.projectId);
+  await write(data);
 }
 
 export async function addCanvasMarker(
@@ -447,11 +507,16 @@ export async function undoCanvasAction(projectId: string): Promise<void> {
   const data = await read();
   const markers = data.canvasMarkers.filter((m) => m.projectId === projectId);
   const strokes = data.canvasStrokes.filter((s) => s.projectId === projectId);
+  const annotations = (data.canvasAnnotations ?? []).filter((item) => item.projectId === projectId);
   const marker = markers.at(-1);
   const stroke = strokes.at(-1);
+  const annotation = annotations.at(-1);
   const pairUndo =
     data.canvasPairUndo?.projectId === projectId ? data.canvasPairUndo : null;
-  const latestAdd = [marker?.createdAt, stroke?.createdAt].filter(Boolean).sort().at(-1);
+  const latestAdd = [marker?.createdAt, stroke?.createdAt, annotation?.createdAt]
+    .filter(Boolean)
+    .sort()
+    .at(-1);
   if (pairUndo && (!latestAdd || pairUndo.createdAt >= latestAdd)) {
     applyPairPoints(data, pairUndo.pairId, pairUndo.vorlauf, pairUndo.ruecklauf);
     data.canvasPairUndo = null;
@@ -459,8 +524,14 @@ export async function undoCanvasAction(projectId: string): Promise<void> {
     await write(data);
     return;
   }
-  if (!marker && !stroke) return;
-  if (marker && (!stroke || marker.createdAt >= stroke.createdAt)) {
+  if (!marker && !stroke && !annotation) return;
+  if (
+    annotation &&
+    (!marker || annotation.createdAt >= marker.createdAt) &&
+    (!stroke || annotation.createdAt >= stroke.createdAt)
+  ) {
+    data.canvasAnnotations = (data.canvasAnnotations ?? []).filter((item) => item.id !== annotation.id);
+  } else if (marker && (!stroke || marker.createdAt >= stroke.createdAt)) {
     if (marker.partId) data.parts = data.parts.filter((p) => p.id !== marker.partId);
     data.canvasMarkers = data.canvasMarkers.filter((m) => m.id !== marker.id);
   } else if (stroke) {

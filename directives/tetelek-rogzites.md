@@ -39,7 +39,10 @@ Nincs Montagebogen a választóban.
    - Abzweig / kereszteződés egyenes szakaszon: a merőleges ág **ott marad a száron**, ahol a szerelő rárajzolta. Nem szabad a cső végére húzni.
    - Az X-átalakító lapon a típus (Muffe / Reduzir / Abzweig) mindig látszik; a DM lista a kiválasztott mező alatt nyílik, a választott méret megmarad.
    - **Cső módban** koppintással kijelölhető egy vonalpár (narancs). A kijelölt párt húzva áthelyezhető. Másik pár **végére** engedve beolvad; a **szárra** (nem a végére) engedve Abzweig / T marad. A `− / +` vezérlővel 12–80 px között állítható a VL–RL távolság.
+   - A kijelölt csőpár töréspontjai narancs fogópontként jelennek meg. A fogópont húzásával az egyenes, sarok vagy Abzweig utólag alakítható; a végpont a fővezetékhez visszapattan.
    - A vonalhoz kapcsolt X-eknek együtt kell mozogniuk a távolság állításakor.
+   - **Elem módban** a rajzra Dose vagy Dämmpolster helyezhető. A meglévő elem húzható, koppintással szerkeszthető és törölhető.
+   - Dämmpolster: laminált anyag, 1 m hosszú és 40 mm széles. A rajzi jel `1/40` vagy `2/40`.
 4. **Rajz** az alapmód; az **X módot külön aktiválni kell**.
 5. X módban csak rövid, legfeljebb 10 px-t mozduló koppintás rak le X-et; húzás/pinch után nem. A koppintásnak a VL/RL vonaltól legfeljebb kb. **3 mm-re (12 px)** kell lennie, különben nem kerül le X.
 6. Minden még át nem alakított X automatikusan az **aktuális csoport** része; nincs külön kijelölési mód.

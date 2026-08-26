@@ -55,6 +55,8 @@ A projekt főképernyője egy **teljes telefonkijelzős rajzlap**:
 4. Hosszú nyomás vagy a `Muff (N)` gomb megnyitja a Muffe / Reduzir / Abzweig adatlapot.
 5. Mentéskor minden aktuális X egy darab megadott tétellé alakul. A később lerakott X-ek új csoportot alkotnak.
 6. Hegesztett muffnál külön típusok: **Bogenmuffe**, **Montagemuffe**, **Reduzirmuffe**, **Endmuffe**, **Montageabzweig**. Nincs Montagebogen.
+7. **Cső mód:** a VL/RL pár kijelölhető és mozgatható; a töréspontjai külön húzhatók. A végpontra illesztés toldás, a fővezeték szárára illesztés Abzweig marad.
+8. **Elem mód:** szabadon elhelyezhető és szerkeszthető Dose, illetve `1/40` vagy `2/40` Dämmpolster. A Dämmpolster 1 m hosszú, 40 mm széles laminált anyag.
 
 A drótmérés nem része ennek a gyors adatlapnak.
 
