@@ -32,7 +32,7 @@ export function ProjectFormScreen({ navigation, route }: Props) {
     void (async () => {
       const p = await getProject(projectId);
       if (!p) {
-        Alert.alert('Hiba', 'Projekt nem található');
+        Alert.alert('Hiba', 'Baustelle nem található');
         navigation.goBack();
         return;
       }
@@ -51,7 +51,7 @@ export function ProjectFormScreen({ navigation, route }: Props) {
     }
     setSaving(true);
     try {
-      const project = await saveProject({
+      await saveProject({
         id: projectId,
         betreiber,
         verlegefirma,
@@ -62,7 +62,7 @@ export function ProjectFormScreen({ navigation, route }: Props) {
       if (editing) {
         navigation.goBack();
       } else {
-        navigation.replace('DrawingBoard', { projectId: project.id });
+        navigation.replace('TodayWork');
       }
     } catch (e) {
       Alert.alert('Hiba', e instanceof Error ? e.message : 'Mentés sikertelen');
@@ -74,18 +74,21 @@ export function ProjectFormScreen({ navigation, route }: Props) {
   return (
     <ScrollView style={styles.screen} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
       <FadeIn>
-        <Field label="Baustellenort" value={baustellenort} onChangeText={setBaustellenort} placeholder="pl. Wernher-Von-Braun Str." />
+        <Text style={styles.helper}>A terepi induláshoz csak a helyszín kötelező. A többi adat később is kitölthető.</Text>
+        <Field label="Baustellenort *" value={baustellenort} onChangeText={setBaustellenort} placeholder="pl. Ingolstädter Straße" />
+        <Field label="Datum" value={date} onChangeText={setDate} placeholder={todayIso()} autoCapitalize="none" />
+
+        <Text style={styles.optionalTitle}>Opcionális adatok</Text>
         <Field label="Betreiber" value={betreiber} onChangeText={setBetreiber} placeholder="Üzemeltető" />
         <Field label="Verlegefirma" value={verlegefirma} onChangeText={setVerlegefirma} placeholder="Fektető cég" />
-        <Field label="Datum (ÉÉÉÉ-HH-NN)" value={date} onChangeText={setDate} placeholder={todayIso()} autoCapitalize="none" />
-        <Field label="Bemerkungen" value={remarks} onChangeText={setRemarks} placeholder="Megjegyzés" multiline />
+        <Field label="Bemerkungen" value={remarks} onChangeText={setRemarks} placeholder="Megjegyzés / Auftrag" multiline />
 
         <AnimatedPressable
           style={[styles.primaryBtn, saving && { opacity: 0.6 }]}
           onPress={onSave}
           disabled={saving}
         >
-          <Text style={styles.primaryBtnText}>{editing ? 'Mentés' : 'Mentés és muffok'}</Text>
+          <Text style={styles.primaryBtnText}>{editing ? 'Mentés' : 'Baustelle indítása'}</Text>
         </AnimatedPressable>
       </FadeIn>
     </ScrollView>
@@ -126,9 +129,12 @@ function Field({
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.bg },
   content: { padding: spacing.md, paddingBottom: spacing.xl },
+  helper: { color: colors.muted, lineHeight: 21, marginBottom: spacing.md },
+  optionalTitle: { marginTop: spacing.sm, marginBottom: spacing.md, color: colors.ink, fontSize: 16, fontWeight: '900' },
   field: { marginBottom: spacing.md },
   label: { fontWeight: '700', color: colors.ink, marginBottom: 6 },
   input: {
+    minHeight: 52,
     backgroundColor: colors.surface,
     borderWidth: 1,
     borderColor: colors.border,
@@ -140,12 +146,13 @@ const styles = StyleSheet.create({
   },
   inputMultiline: { minHeight: 88, textAlignVertical: 'top' },
   primaryBtn: {
+    minHeight: 58,
     backgroundColor: colors.accent,
-    paddingVertical: 16,
     borderRadius: radius.md,
     alignItems: 'center',
+    justifyContent: 'center',
     marginTop: spacing.sm,
     ...shadow.card,
   },
-  primaryBtnText: { color: '#fff', fontWeight: '800', fontSize: 16 },
+  primaryBtnText: { color: '#fff', fontWeight: '900', fontSize: 17 },
 });
