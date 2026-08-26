@@ -11,6 +11,7 @@ import { DrawingBoardScreen } from './src/screens/DrawingBoardScreen';
 import { MuffListScreen } from './src/screens/MuffListScreen';
 import { ProjectFormScreen } from './src/screens/ProjectFormScreen';
 import { ProjectListScreen } from './src/screens/ProjectListScreen';
+import { TodayWorkScreen } from './src/screens/TodayWorkScreen';
 import { colors } from './src/theme';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -25,6 +26,7 @@ export default function App() {
       <NavigationContainer>
         <StatusBar style="light" />
         <Stack.Navigator
+          initialRouteName="TodayWork"
           screenOptions={{
             headerStyle: { backgroundColor: colors.ink },
             headerTintColor: '#fff',
@@ -36,33 +38,18 @@ export default function App() {
             headerRight: () => <InstallButton />,
           }}
         >
-          <Stack.Screen
-            name="ProjectList"
-            component={ProjectListScreen}
-            options={{ title: 'Muffe Plan' }}
-          />
+          <Stack.Screen name="TodayWork" component={TodayWorkScreen} options={{ title: 'Muffe Plan' }} />
+          <Stack.Screen name="ProjectList" component={ProjectListScreen} options={{ title: 'Baustellék' }} />
           <Stack.Screen
             name="ProjectForm"
             component={ProjectFormScreen}
             options={({ route }) => ({
-              title: route.params?.projectId ? 'Projekt szerkesztése' : 'Új projekt',
+              title: route.params?.projectId ? 'Baustelle szerkesztése' : 'Új Baustelle',
             })}
           />
-          <Stack.Screen
-            name="DrawingBoard"
-            component={DrawingBoardScreen}
-            options={{ title: 'Rajzlap' }}
-          />
-          <Stack.Screen
-            name="MuffList"
-            component={MuffListScreen}
-            options={{ title: 'Muffok' }}
-          />
-          <Stack.Screen
-            name="DailySummary"
-            component={DailySummaryScreen}
-            options={{ title: 'Napi összesítő' }}
-          />
+          <Stack.Screen name="DrawingBoard" component={DrawingBoardScreen} options={{ title: 'Skicc' }} />
+          <Stack.Screen name="MuffList" component={MuffListScreen} options={{ title: 'Tételek' }} />
+          <Stack.Screen name="DailySummary" component={DailySummaryScreen} options={{ title: 'Napi összesítő' }} />
         </Stack.Navigator>
       </NavigationContainer>
     </SafeAreaProvider>
