@@ -43,7 +43,7 @@ Cél: nap végére egyértelmű összesítés (30–40 tétel mellett is).
 - Ne hozd vissza a régi video-editor kódot.
 - Ne építs felesleges dashboardot, kártyaerdőt, purple/glow UI-t.
 - Ne tegyél titkokat a repóba (`.env` gitignore-ban van).
-- Ne ígérj Play/App Store APK-t, amíg nincs EAS build. A webes **PWA Letöltés** gomb (kezdőképernyőre telepítés) rendben van.
+- Ne ígérj Play/App Store APK-t, amíg nincs EAS build. A webes **PWA Letöltés** gomb (kezdőképernyőre telepítés) a terv. Ne adj GitHub Actions APK/zipet telepítőnek — lásd `directives/telepites.md`.
 - Ne töröld a muff/reduzir/abzweig +/− UX-et „szépítés” címén.
 
 ## Fontos fájlok
@@ -93,6 +93,6 @@ Ha elromlik valami:
 3. A változtatás először külön fejlesztői ágon és PR-ban marad.
 4. **Soha ne merge-eld vagy pushold a változtatást a `main` ágra a felhasználó egyértelmű engedélye nélkül.**
 5. A `main`-re csak akkor kerülhet, ha a felhasználó a dev linken kipróbálta és kimondottan jóváhagyta (pl. „mehet mainra”, „merge”).
-6. A `main` a letölthető app: GitHub Pages `https://afecoh-cmyk.github.io/video-editor/` (workflow: `.github/workflows/web-deploy.yml`).
+6. A letölthető app **PWA**: webes link → **Letöltés** → kezdőképernyő. Az adatok a telefonon maradnak. Tartós cím: GitHub Pages `https://afecoh-cmyk.github.io/video-editor/`.
 
 Légy gyakorlatias. Légy megbízható. A bajsztelep a mérce.
